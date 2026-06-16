@@ -8,6 +8,10 @@ license = "MIT"
 [dependencies]
 smithay-client-toolkit = "0.19"
 wayland-client = "0.31"
+wayland-egl = "0.32"
+khronos-egl = { version = "6", features = ["dynamic"] }
+glow = "0.16"
+image = { version = "0.25", default-features = false, features = ["png"] }
 anyhow = "1"
 
 [profile.release]

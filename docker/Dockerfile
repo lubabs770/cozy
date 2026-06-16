@@ -7,6 +7,10 @@
 # Source is bind-mounted at /work and built inside; output PNGs go to /out.
 FROM rust:1-bookworm
 
+# rustfmt + clippy aren't guaranteed for the image's resolved toolchain; add
+# them so `make lint` works regardless of the base image.
+RUN rustup component add rustfmt clippy
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config \
         libwayland-dev \
