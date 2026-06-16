@@ -1,0 +1,15 @@
+[package]
+name = "cozy"
+version = "0.1.0"
+edition = "2021"
+description = "Animated rain over your Wayland wallpaper — a wlr-layer-shell client."
+license = "MIT"
+
+[dependencies]
+smithay-client-toolkit = "0.19"
+wayland-client = "0.31"
+anyhow = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
