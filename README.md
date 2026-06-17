@@ -1,4 +1,28 @@
-# cozy
+# gamma branch is (for) now the main!!
+
+
+### cozy
+vid from gamma:
+
+https://github.com/user-attachments/assets/21bdbe17-fc5d-43c2-938d-a2aa5675c229
+
+
+
+
+
+
+
+this was written by claude
+
+### the end goal of this project is to have it hooked up to a weather api taking params like precipitation
+### wind speed wind direction etc. and applying the shaders accordingly
+
+<br>
+<br>
+
+
+> below written by claude
+
 
 Animated rain over your Wayland wallpaper.
 
