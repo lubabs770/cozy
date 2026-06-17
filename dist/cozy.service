@@ -1,0 +1,18 @@
+[Unit]
+Description=cozy — animated rain wallpaper engine
+Documentation=https://github.com/lubabs770/cozy
+# cozy owns the wallpaper, so it stands in for the wallpaper daemon. Tie it to
+# the graphical session: it comes up with the compositor and dies with it.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# cozy-session reads Caelestia's current wallpaper, then execs cozy.
+ExecStart=%h/.local/bin/cozy-session
+# A live reload from the control socket never needs a restart; only crashes do.
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,20 @@
+#!/bin/sh
+# cozy-session — launch the cozy wallpaper engine, seeded with whatever
+# wallpaper Caelestia currently has selected.
+#
+# Caelestia records the active wallpaper as plain text at
+# $XDG_STATE_HOME/caelestia/wallpaper/path.txt. We read it so cozy starts on the
+# right image; thereafter the Caelestia postHook (`cozy set "$WALLPAPER_PATH"`)
+# keeps it in sync live. If the file is missing (fresh install, never set a
+# wallpaper yet), cozy falls back to its embedded image.
+
+wall_file="${XDG_STATE_HOME:-$HOME/.local/state}/caelestia/wallpaper/path.txt"
+
+if [ -r "$wall_file" ]; then
+    wall="$(cat "$wall_file")"
+    if [ -n "$wall" ] && [ -r "$wall" ]; then
+        exec cozy --wallpaper "$wall"
+    fi
+fi
+
+exec cozy

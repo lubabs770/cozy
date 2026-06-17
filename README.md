@@ -12,6 +12,32 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 
 <br>
 
+## Install (Caelestia + Hyprland)
+
+If you run the [Caelestia](https://github.com/caelestia-dots) dotfiles, one command builds cozy and wires it in so it takes over wallpaper duties transparently:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/gamma/install.sh | bash
+```
+
+The installer is idempotent (re-run it to update) and needs no root. It:
+
+- builds the release binary and installs `cozy` + `cozy-session` to `~/.local/bin`,
+
+- installs and enables a `systemd --user` service so cozy starts with your graphical session,
+
+- appends `cozy set "$WALLPAPER_PATH"` to your Caelestia wallpaper `postHook` (`~/.config/caelestia/cli.json`, backed up first), so `caelestia wallpaper` changes flow into cozy live,
+
+- turns off the Caelestia shell's own wallpaper rendering (`background.wallpaperEnabled = false` in `shell.json`, also backed up) so cozy is the sole wallpaper renderer — the desktop clock and visualiser are left untouched, and
+
+- seeds cozy with your current Caelestia wallpaper.
+
+After that, change wallpaper the way you always have — `caelestia wallpaper` — and cozy follows along. Switch the rain with `cozy effect <name>`.
+
+To undo everything, restore the `.cozy-bak` backups next to `cli.json` / `shell.json` and `systemctl --user disable --now cozy.service`.
+
+<br>
+
 ## Requirements
 
 - A Wayland compositor that implements `wlr-layer-shell` (Hyprland, sway, river, …).
