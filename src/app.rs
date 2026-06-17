@@ -30,7 +30,8 @@ use wayland_client::{
 
 use crate::control::Command;
 use crate::render::egl::Egl;
-use crate::surface::RainSurface;
+use crate::render::gl;
+use crate::surface::{FrameParams, RainSurface};
 
 /// Fallback dimensions when the compositor leaves the size up to us (a configure
 /// with a zero width or height). Real outputs send concrete sizes.
@@ -50,6 +51,15 @@ pub struct Cozy {
     /// Bumped every time `wallpaper` changes; surfaces compare it to know when to
     /// re-upload their texture rather than re-decoding every frame.
     wallpaper_gen: u64,
+    /// The active rain effect (a shader name from the renderer's registry).
+    effect: String,
+    /// Bumped every time `effect` changes; surfaces compare it to know when to
+    /// recompile their program.
+    effect_gen: u64,
+    /// Weather-driven shader parameters: horizontal wind skew and rain intensity
+    /// (0..1). Defaults until a weather source drives them in a later phase.
+    wind: f32,
+    intensity: f32,
     /// Control commands from the socket listener thread, drained each frame.
     commands: Receiver<Command>,
     /// Start time; the elapsed seconds become the shader's `u_time`.
@@ -78,6 +88,10 @@ impl Cozy {
             egl,
             wallpaper,
             wallpaper_gen: 0,
+            effect: gl::DEFAULT_EFFECT.to_string(),
+            effect_gen: 0,
+            wind: 0.0,
+            intensity: 0.7,
             commands,
             start: Instant::now(),
             qh,
@@ -97,6 +111,21 @@ impl Cozy {
                     }
                     Err(e) => eprintln!("cozy: set wallpaper {}: {e}", path.display()),
                 },
+                Command::SetEffect { name } => {
+                    if gl::effect_exists(&name) {
+                        self.effect = name;
+                        self.effect_gen = self.effect_gen.wrapping_add(1);
+                    } else {
+                        eprintln!(
+                            "cozy: unknown effect {name:?} (known: {})",
+                            gl::effect_names()
+                        );
+                    }
+                }
+                Command::SetWeather { wind, precip } => {
+                    self.wind = wind;
+                    self.intensity = precip.clamp(0.0, 1.0);
+                }
             }
         }
     }
@@ -134,16 +163,29 @@ impl Cozy {
     /// Draw a surface, logging (rather than panicking on) any GL/EGL error.
     fn draw_surface(&mut self, index: usize) {
         let time = self.start.elapsed().as_secs_f32();
-        let gen = self.wallpaper_gen;
         let Cozy {
             egl,
             wallpaper,
+            wallpaper_gen,
+            effect,
+            effect_gen,
+            wind,
+            intensity,
             surfaces,
             qh,
             ..
         } = self;
+        let params = FrameParams {
+            wallpaper: wallpaper.as_slice(),
+            wallpaper_gen: *wallpaper_gen,
+            effect: effect.as_str(),
+            effect_gen: *effect_gen,
+            time,
+            wind: *wind,
+            intensity: *intensity,
+        };
         if let Some(s) = surfaces.get_mut(index) {
-            if let Err(e) = s.draw(egl, wallpaper.as_slice(), gen, time, qh) {
+            if let Err(e) = s.draw(egl, &params, qh) {
                 eprintln!("cozy: draw error: {e:#}");
             }
         }

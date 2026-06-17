@@ -10,6 +10,8 @@
 #   CARGO_FLAGS  extra flags for `cargo build`         (e.g. --release)
 #   COZY_SWAP_TO path passed to `cozy set <path>` right after frame 0, to
 #                exercise the live wallpaper swap (default: unset = no swap)
+#   COZY_POST    a cozy client subcommand run right after frame 0, e.g.
+#                "effect classic" or "weather --wind 0.6 --precip 1.0"
 set -euo pipefail
 
 FRAMES="${FRAMES:-3}"
@@ -66,14 +68,17 @@ for n in $(seq 0 $((FRAMES - 1))); do
     else
         echo "!! grim failed (frame $n)" >&2
     fi
-    # After the first frame, optionally tell the running daemon to switch
-    # wallpaper, so later frames prove the live swap took effect.
-    if [ "$n" -eq 0 ] && [ -n "${COZY_SWAP_TO:-}" ]; then
-        echo "==> cozy set $COZY_SWAP_TO"
-        if "$BIN" set "$COZY_SWAP_TO"; then
-            echo "   swap command sent"
-        else
-            echo "!! cozy set failed" >&2
+    # After the first frame, optionally drive the running daemon so later frames
+    # prove a live change (wallpaper swap / effect switch / weather) took effect.
+    if [ "$n" -eq 0 ]; then
+        if [ -n "${COZY_SWAP_TO:-}" ]; then
+            echo "==> cozy set $COZY_SWAP_TO"
+            "$BIN" set "$COZY_SWAP_TO" || echo "!! cozy set failed" >&2
+        fi
+        if [ -n "${COZY_POST:-}" ]; then
+            echo "==> cozy $COZY_POST"
+            # shellcheck disable=SC2086
+            "$BIN" $COZY_POST || echo "!! cozy $COZY_POST failed" >&2
         fi
     fi
     sleep "$FRAME_GAP"

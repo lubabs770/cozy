@@ -30,13 +30,23 @@ use anyhow::{anyhow, Context, Result};
 /// parameters. Each variant maps to one wire verb in [`Command::parse`] /
 /// [`Command::to_line`].
 #[derive(Debug, Clone)]
+// All variants are setters; the shared `Set` prefix is intentional.
+#[allow(clippy::enum_variant_names)]
 pub enum Command {
     /// Replace the wallpaper with the image at this path.
     SetWallpaper { path: PathBuf },
+    /// Switch the active rain effect (e.g. `droplet`, `classic`).
+    SetEffect { name: String },
+    /// Set the weather-driven parameters: `wind` (horizontal skew) and `precip`
+    /// (rain intensity, 0..1). Sent live by a weather poller in a later phase.
+    SetWeather { wind: f32, precip: f32 },
 }
 
 impl Command {
-    /// Parse one wire line (e.g. `set /path/to/img.png`) into a command.
+    /// Parse one wire line into a command. Verbs:
+    /// * `set <path>`
+    /// * `effect <name>`
+    /// * `weather --wind <f> --precip <f>`
     fn parse(line: &str) -> Result<Self> {
         let line = line.trim();
         let (verb, rest) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
@@ -50,6 +60,20 @@ impl Command {
                     path: PathBuf::from(rest),
                 })
             }
+            "effect" => {
+                let name = rest.trim();
+                if name.is_empty() {
+                    return Err(anyhow!("`effect` requires a name"));
+                }
+                Ok(Command::SetEffect {
+                    name: name.to_string(),
+                })
+            }
+            "weather" => {
+                let wind = flag_value(rest, "--wind")?;
+                let precip = flag_value(rest, "--precip")?;
+                Ok(Command::SetWeather { wind, precip })
+            }
             other => Err(anyhow!("unknown command: {other:?}")),
         }
     }
@@ -58,8 +82,29 @@ impl Command {
     fn to_line(&self) -> String {
         match self {
             Command::SetWallpaper { path } => format!("set {}", path.display()),
+            Command::SetEffect { name } => format!("effect {name}"),
+            Command::SetWeather { wind, precip } => {
+                format!("weather --wind {wind} --precip {precip}")
+            }
         }
     }
+}
+
+/// Parse `--flag <value>` (an `f32`) out of a whitespace-separated argument
+/// string. Errors if the flag is missing or its value doesn't parse.
+fn flag_value(args: &str, flag: &str) -> Result<f32> {
+    let mut it = args.split_whitespace();
+    while let Some(tok) = it.next() {
+        if tok == flag {
+            let v = it
+                .next()
+                .ok_or_else(|| anyhow!("{flag} requires a numeric value"))?;
+            return v
+                .parse::<f32>()
+                .map_err(|e| anyhow!("invalid {flag} value {v:?}: {e}"));
+        }
+    }
+    Err(anyhow!("missing {flag}"))
 }
 
 /// Path to the control socket: `$XDG_RUNTIME_DIR/cozy/cozy.sock`, falling back

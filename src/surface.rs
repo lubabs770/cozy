@@ -16,6 +16,24 @@ use crate::app::Cozy;
 use crate::render::egl::{Egl, EglContext};
 use crate::render::gl::Renderer;
 
+/// Everything a surface needs to render one frame, bundled so the per-frame call
+/// stays tidy as more parameters (effect, weather) are added.
+pub struct FrameParams<'a> {
+    /// Encoded wallpaper image bytes (decoded/uploaded lazily, on change).
+    pub wallpaper: &'a [u8],
+    /// Generation of `wallpaper`; advancing it triggers a texture re-upload.
+    pub wallpaper_gen: u64,
+    /// Name of the active effect shader.
+    pub effect: &'a str,
+    /// Generation of `effect`; advancing it triggers a program recompile.
+    pub effect_gen: u64,
+    /// Seconds since startup (the shader's `u_time`).
+    pub time: f32,
+    /// Weather-driven wind skew and rain intensity.
+    pub wind: f32,
+    pub intensity: f32,
+}
+
 /// A fullscreen, click-through Background layer surface bound to one output.
 pub struct RainSurface {
     /// The output this surface is pinned to (used for hotplug removal in M5).
@@ -33,6 +51,9 @@ pub struct RainSurface {
     ///
     /// [`Cozy::wallpaper_gen`]: crate::app::Cozy
     last_gen: u64,
+    /// The effect generation this surface's program was built for; when it
+    /// trails the latest, the program is recompiled on next draw.
+    last_effect_gen: u64,
     /// Set once the compositor has sent its first configure.
     pub configured: bool,
 }
@@ -51,6 +72,7 @@ impl RainSurface {
             width: 0,
             height: 0,
             last_gen: 0,
+            last_effect_gen: 0,
             configured: false,
         }
     }
@@ -65,20 +87,13 @@ impl RainSurface {
     }
 
     /// Render one frame: ensure the GL context and renderer exist at the current
-    /// size, (re-)upload the wallpaper if it changed, draw, queue the next frame
-    /// callback, and present.
+    /// size, (re-)upload the wallpaper or recompile the effect if either changed,
+    /// draw, queue the next frame callback, and present.
     ///
-    /// `wallpaper` is the current encoded image bytes and `gen` its generation
-    /// counter; when `gen` advances past what this surface last uploaded, the
-    /// texture is rebuilt (otherwise the bytes are only decoded once).
-    pub fn draw(
-        &mut self,
-        egl: &Rc<Egl>,
-        wallpaper: &[u8],
-        gen: u64,
-        time: f32,
-        qh: &QueueHandle<Cozy>,
-    ) -> Result<()> {
+    /// Generation counters in [`FrameParams`] gate the expensive work: the
+    /// wallpaper is only decoded/uploaded and the effect only recompiled when
+    /// their respective generations advance past what this surface last applied.
+    pub fn draw(&mut self, egl: &Rc<Egl>, p: &FrameParams, qh: &QueueHandle<Cozy>) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             return Ok(());
         }
@@ -96,19 +111,28 @@ impl RainSurface {
         ctx.resize(w, h);
         ctx.make_current()?;
 
-        // Build the renderer lazily; thereafter re-upload only when the wallpaper
-        // generation advances (a `set` command landed).
+        // Build the renderer lazily; thereafter re-upload the wallpaper or
+        // recompile the effect only when their generations advance.
         if self.renderer.is_none() {
-            self.renderer = Some(Renderer::new(&ctx.gl, wallpaper)?);
-            self.last_gen = gen;
-        } else if gen != self.last_gen {
-            if let Some(r) = self.renderer.as_mut() {
-                r.set_wallpaper(&ctx.gl, wallpaper)?;
+            self.renderer = Some(Renderer::new(&ctx.gl, p.wallpaper, p.effect)?);
+            self.last_gen = p.wallpaper_gen;
+            self.last_effect_gen = p.effect_gen;
+        } else {
+            if p.wallpaper_gen != self.last_gen {
+                if let Some(r) = self.renderer.as_mut() {
+                    r.set_wallpaper(&ctx.gl, p.wallpaper)?;
+                }
+                self.last_gen = p.wallpaper_gen;
             }
-            self.last_gen = gen;
+            if p.effect_gen != self.last_effect_gen {
+                if let Some(r) = self.renderer.as_mut() {
+                    r.set_effect(&ctx.gl, p.effect)?;
+                }
+                self.last_effect_gen = p.effect_gen;
+            }
         }
         let renderer = self.renderer.as_ref().expect("renderer initialized above");
-        renderer.draw(&ctx.gl, w, h, time);
+        renderer.draw(&ctx.gl, w, h, p.time, p.wind, p.intensity);
 
         // Queue the next frame before presenting; swap_buffers commits the
         // surface, carrying this callback request with it.

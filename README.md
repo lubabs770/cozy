@@ -2,9 +2,13 @@
 
 Animated rain over your Wayland wallpaper.
 
-cozy is a `wlr-layer-shell` client that sits on the **background** layer, renders your wallpaper itself, and composites two rain effects on top of it in a single fragment shader: additive falling **streaks**, and glass **droplets** that refract the wallpaper behind them. Clicks fall straight through to the desktop.
+cozy is a `wlr-layer-shell` client that sits on the **background** layer, renders your wallpaper itself, and composites animated rain on top of it — glass **droplets** that refract the wallpaper behind them. Clicks fall straight through to the desktop.
 
-![cozy rendering rain over a sunset wallpaper](docs/preview.png)
+Because cozy owns the wallpaper (you can't refract pixels you don't have), it runs **instead of** a wallpaper daemon, not alongside one. It switches wallpaper live over its own control socket, so it never needs a restart.
+
+The rain is a swappable **effect**; switch effects (and, later, let local weather drive the wind and intensity) on a running instance.
+
+![cozy rendering the droplet effect over a sunset wallpaper](docs/droplet.png)
 
 <br>
 
@@ -27,6 +31,17 @@ cargo build --release
 
 cozy binds one background surface per output and starts drawing immediately. A test wallpaper is embedded, so it renders out of the box.
 
+Drive a running instance with the same binary (point your wallpaper keybind / rotation script at it — cozy is wallpaper-daemon-agnostic):
+
+```sh
+cozy --wallpaper ~/walls/now.jpg        # start with a wallpaper
+cozy set ~/walls/next.jpg               # switch wallpaper live, no restart
+cozy effect classic                     # switch rain effect (droplet | classic)
+cozy weather --wind 0.4 --precip 0.9    # set wind skew + rain intensity
+```
+
+The socket lives at `$XDG_RUNTIME_DIR/cozy/cozy.sock`.
+
 Stop it with `Ctrl-C` (or `kill`); the layer surfaces and GL contexts are torn down on exit.
 
 > **Note:** cozy is Linux/Wayland only. On other platforms, develop and test it through the container harness below.
@@ -35,7 +50,7 @@ Stop it with `Ctrl-C` (or `kill`); the layer surfaces and GL contexts are torn d
 
 ## Configuration
 
-A TOML config file (`cozy.toml`) is planned and will expose the tunables below. Until then these are baked-in defaults; the rain parameters live as named constants at the top of each stage in `shaders/rain.frag`.
+A TOML config file (`cozy.toml`) is planned and will expose the tunables below. Until then `wind` and rain intensity are set live with `cozy weather`, and the `classic` effect's parameters live as named constants at the top of each stage in `shaders/effects/classic.frag`.
 
 | Knob | Meaning |
 |---|---|
@@ -72,22 +87,27 @@ One layer surface per output, each owning its own EGL/GLES context and renderer.
 
 ```
 src/
-  main.rs            bootstrap: connect, bind globals, run the event loop
+  main.rs            bootstrap + CLI: run the daemon, or send a control command
+  control.rs         Unix-socket control protocol (set / effect / weather)
   app.rs             app state + all Wayland event handlers
   surface.rs         one background layer surface per output, + its drawing
   render/
     egl.rs           EGL display/context setup on a Wayland surface
-    gl.rs            shader program, fullscreen-triangle draw, uniforms
-    texture.rs       decode an image → RGBA8 GL texture
+    gl.rs            effect registry, fullscreen-triangle draw, uniforms
+    texture.rs       decode an image → mipmapped RGBA8 GL texture
 shaders/
   rain.vert          fullscreen triangle
-  rain.frag          the effects: base → streaks → droplets → refraction
+  effects/
+    droplet.frag     rain on glass with refraction (ported from Heartfelt)
+    classic.frag     the original hand-built streaks + droplets
 ```
 
-The fragment shader is staged so effects stay independent — each is a self-contained function (`streaks`, `static_droplets`, `sliding_droplets`, `refracted_base`) composited in `main`, making a new effect cheap to add.
+Each effect is a fragment shader honouring a shared uniform contract (`u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`), registered in `gl.rs` and switched live — so adding an effect is one shader file plus one table entry.
 
 <br>
 
 ## License
 
-MIT
+cozy's own code is **MIT**.
+
+The `droplet` effect (`shaders/effects/droplet.frag`) is ported from **"Heartfelt"** by **Martijn Steinrucken (BigWings)** — <https://www.shadertoy.com/view/ltffzl> — and is licensed **CC BY-NC-SA 3.0**, not MIT. That license (attribution, non-commercial, share-alike) governs that file and any derivative of it.

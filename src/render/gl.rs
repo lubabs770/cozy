@@ -1,9 +1,15 @@
-//! The GL renderer: shader program, fullscreen-triangle draw, and uniforms.
+//! The GL renderer: a registry of effect shaders, the fullscreen-triangle draw,
+//! and uniforms.
 //!
 //! One [`Renderer`] lives per surface (GL objects belong to a single context).
-//! The shaders are embedded at build time via `include_str!` so a release build
-//! is a single self-contained binary; iterating on them still only needs a
-//! rebuild, not a code change.
+//! cozy renders exactly one **effect** at a time — a fragment shader honouring a
+//! shared uniform contract (`u_resolution`, `u_tex_resolution`, `u_wallpaper`,
+//! `u_time`, `u_wind`, `u_intensity`). Effects are registered in [`EFFECTS`] and
+//! switched live with [`Renderer::set_effect`]; adding one is a new shader file
+//! plus one table entry.
+//!
+//! Shaders are embedded at build time via `include_str!` so a release build is a
+//! single self-contained binary; iterating on them still only needs a rebuild.
 
 use anyhow::{anyhow, Result};
 use glow::HasContext as _;
@@ -11,40 +17,124 @@ use glow::HasContext as _;
 use super::texture::Texture;
 
 const VERT_SRC: &str = include_str!("../../shaders/rain.vert");
-const FRAG_SRC: &str = include_str!("../../shaders/rain.frag");
 
-/// Compiled program, the (attribute-less) VAO required by ES 3.0 for
-/// `draw_arrays`, the wallpaper texture, and cached uniform locations.
+/// All built-in effects, by name. The first entry is the default.
+///
+/// Note: `droplet` is ported from "Heartfelt" by BigWings and is licensed
+/// CC BY-NC-SA 3.0 (see the shader header), unlike the rest of cozy (MIT).
+const EFFECTS: &[(&str, &str)] = &[
+    (
+        "droplet",
+        include_str!("../../shaders/effects/droplet.frag"),
+    ),
+    (
+        "classic",
+        include_str!("../../shaders/effects/classic.frag"),
+    ),
+];
+
+/// The effect cozy starts with when none is requested.
+pub const DEFAULT_EFFECT: &str = EFFECTS[0].0;
+
+/// Look up an effect's fragment source by name.
+fn effect_source(name: &str) -> Result<&'static str> {
+    EFFECTS
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, src)| *src)
+        .ok_or_else(|| anyhow!("unknown effect: {name:?} (known: {})", effect_names()))
+}
+
+/// Whether `name` is a registered effect (used to validate control commands).
+pub fn effect_exists(name: &str) -> bool {
+    EFFECTS.iter().any(|(n, _)| *n == name)
+}
+
+/// Comma-separated list of effect names, for error/help messages.
+pub fn effect_names() -> String {
+    EFFECTS
+        .iter()
+        .map(|(n, _)| *n)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Cached uniform locations for the currently linked program. Unused uniforms
+/// resolve to `None` and are simply skipped at draw time, so an effect need only
+/// declare the uniforms it actually uses.
+#[derive(Default)]
+struct Uniforms {
+    resolution: Option<glow::UniformLocation>,
+    tex_resolution: Option<glow::UniformLocation>,
+    wallpaper: Option<glow::UniformLocation>,
+    time: Option<glow::UniformLocation>,
+    wind: Option<glow::UniformLocation>,
+    intensity: Option<glow::UniformLocation>,
+}
+
+impl Uniforms {
+    fn locate(gl: &glow::Context, program: glow::Program) -> Self {
+        // SAFETY: a GL context is current and `program` was linked from it.
+        unsafe {
+            Self {
+                resolution: gl.get_uniform_location(program, "u_resolution"),
+                tex_resolution: gl.get_uniform_location(program, "u_tex_resolution"),
+                wallpaper: gl.get_uniform_location(program, "u_wallpaper"),
+                time: gl.get_uniform_location(program, "u_time"),
+                wind: gl.get_uniform_location(program, "u_wind"),
+                intensity: gl.get_uniform_location(program, "u_intensity"),
+            }
+        }
+    }
+}
+
+/// Compiled program for the current effect, the (attribute-less) VAO required by
+/// ES 3.0 for `draw_arrays`, the wallpaper texture, and cached uniform locations.
 pub struct Renderer {
     program: glow::Program,
     vao: glow::VertexArray,
     wallpaper: Texture,
-    u_resolution: Option<glow::UniformLocation>,
-    u_tex_resolution: Option<glow::UniformLocation>,
-    u_wallpaper: Option<glow::UniformLocation>,
-    u_time: Option<glow::UniformLocation>,
+    current_effect: String,
+    uniforms: Uniforms,
 }
 
 impl Renderer {
-    /// Build the program and upload the wallpaper. Requires a current context.
-    pub fn new(gl: &glow::Context, wallpaper_bytes: &[u8]) -> Result<Self> {
+    /// Build the program for `effect` and upload the wallpaper. Requires a
+    /// current context.
+    pub fn new(gl: &glow::Context, wallpaper_bytes: &[u8], effect: &str) -> Result<Self> {
         let wallpaper = Texture::from_bytes(gl, wallpaper_bytes)?;
+        let src = effect_source(effect)?;
         // SAFETY: a GL context is current for the lifetime of these calls.
-        unsafe {
-            let program = link_program(gl, VERT_SRC, FRAG_SRC)?;
+        let (program, vao) = unsafe {
+            let program = link_program(gl, VERT_SRC, src)?;
             let vao = gl
                 .create_vertex_array()
                 .map_err(|e| anyhow!("create VAO: {e}"))?;
-            Ok(Self {
-                u_resolution: gl.get_uniform_location(program, "u_resolution"),
-                u_tex_resolution: gl.get_uniform_location(program, "u_tex_resolution"),
-                u_wallpaper: gl.get_uniform_location(program, "u_wallpaper"),
-                u_time: gl.get_uniform_location(program, "u_time"),
-                program,
-                vao,
-                wallpaper,
-            })
+            (program, vao)
+        };
+        Ok(Self {
+            uniforms: Uniforms::locate(gl, program),
+            program,
+            vao,
+            wallpaper,
+            current_effect: effect.to_string(),
+        })
+    }
+
+    /// Switch to another effect, recompiling its program and freeing the old
+    /// one. No-op if already current. Requires a current context.
+    pub fn set_effect(&mut self, gl: &glow::Context, effect: &str) -> Result<()> {
+        if effect == self.current_effect {
+            return Ok(());
         }
+        let src = effect_source(effect)?;
+        // SAFETY: a GL context is current; old program belongs to it.
+        let program = unsafe { link_program(gl, VERT_SRC, src)? };
+        unsafe { gl.delete_program(self.program) };
+        self.program = program;
+        self.uniforms = Uniforms::locate(gl, program);
+        self.current_effect = effect.to_string();
+        Ok(())
     }
 
     /// Replace the wallpaper texture with a freshly decoded one (used when a
@@ -60,8 +150,17 @@ impl Renderer {
     }
 
     /// Draw one frame into the current framebuffer at `width`×`height`.
-    /// `time` is seconds since startup and drives the animated effects.
-    pub fn draw(&self, gl: &glow::Context, width: i32, height: i32, time: f32) {
+    /// `time` is seconds since startup; `wind`/`intensity` are the (future
+    /// weather-driven) effect parameters.
+    pub fn draw(
+        &self,
+        gl: &glow::Context,
+        width: i32,
+        height: i32,
+        time: f32,
+        wind: f32,
+        intensity: f32,
+    ) {
         // SAFETY: a GL context is current; all handles were created from it.
         unsafe {
             gl.viewport(0, 0, width, height);
@@ -70,14 +169,20 @@ impl Renderer {
 
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.wallpaper.handle));
-            gl.uniform_1_i32(self.u_wallpaper.as_ref(), 0);
-            gl.uniform_2_f32(self.u_resolution.as_ref(), width as f32, height as f32);
+            gl.uniform_1_i32(self.uniforms.wallpaper.as_ref(), 0);
             gl.uniform_2_f32(
-                self.u_tex_resolution.as_ref(),
+                self.uniforms.resolution.as_ref(),
+                width as f32,
+                height as f32,
+            );
+            gl.uniform_2_f32(
+                self.uniforms.tex_resolution.as_ref(),
                 self.wallpaper.width as f32,
                 self.wallpaper.height as f32,
             );
-            gl.uniform_1_f32(self.u_time.as_ref(), time);
+            gl.uniform_1_f32(self.uniforms.time.as_ref(), time);
+            gl.uniform_1_f32(self.uniforms.wind.as_ref(), wind);
+            gl.uniform_1_f32(self.uniforms.intensity.as_ref(), intensity);
 
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
         }

@@ -58,6 +58,20 @@ fn main() -> Result<()> {
                 .with_context(|| format!("wallpaper not found: {raw}"))?;
             control::send(&Command::SetWallpaper { path })
         }
+        // Client mode: switch the active effect.
+        Some("effect") => {
+            args.next();
+            let name = args.next().context("usage: cozy effect <name>")?;
+            control::send(&Command::SetEffect { name })
+        }
+        // Client mode: set weather-driven parameters.
+        Some("weather") => {
+            args.next();
+            let rest: Vec<String> = args.collect();
+            let wind = flag_value(&rest, "--wind")?;
+            let precip = flag_value(&rest, "--precip")?;
+            control::send(&Command::SetWeather { wind, precip })
+        }
         Some("--help") | Some("-h") => {
             print_usage();
             Ok(())
@@ -67,13 +81,31 @@ fn main() -> Result<()> {
     }
 }
 
+/// Pull `--flag <value>` (an `f32`) out of CLI args for the `weather` subcommand.
+fn flag_value(args: &[String], flag: &str) -> Result<f32> {
+    let mut it = args.iter();
+    while let Some(tok) = it.next() {
+        if tok == flag {
+            let v = it
+                .next()
+                .with_context(|| format!("{flag} requires a numeric value"))?;
+            return v
+                .parse::<f32>()
+                .with_context(|| format!("invalid {flag} value {v:?}"));
+        }
+    }
+    anyhow::bail!("usage: cozy weather --wind <f> --precip <f> (missing {flag})")
+}
+
 fn print_usage() {
     println!(
         "cozy — animated rain over your Wayland wallpaper\n\n\
          USAGE:\n  \
-         cozy [--wallpaper <path>]   run the daemon\n  \
-         cozy set <path>             switch the wallpaper of a running daemon\n  \
-         cozy --help                 show this help"
+         cozy [--wallpaper <path>]            run the daemon\n  \
+         cozy set <path>                      switch the wallpaper (running daemon)\n  \
+         cozy effect <name>                   switch the rain effect (e.g. droplet, classic)\n  \
+         cozy weather --wind <f> --precip <f> set weather-driven parameters\n  \
+         cozy --help                          show this help"
     );
 }
 
