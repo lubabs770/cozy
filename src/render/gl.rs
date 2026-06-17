@@ -22,6 +22,7 @@ const VERT_SRC: &str = include_str!("../../shaders/rain.vert");
 ///
 /// Note: `droplet` is ported from "Heartfelt" by BigWings and is licensed
 /// CC BY-NC-SA 3.0 (see the shader header), unlike the rest of cozy (MIT).
+/// All other effects are hand-built and MIT.
 const EFFECTS: &[(&str, &str)] = &[
     (
         "droplet",
@@ -31,6 +32,12 @@ const EFFECTS: &[(&str, &str)] = &[
         "classic",
         include_str!("../../shaders/effects/classic.frag"),
     ),
+    (
+        "pouring",
+        include_str!("../../shaders/effects/pouring.frag"),
+    ),
+    ("snow", include_str!("../../shaders/effects/snow.frag")),
+    ("sleet", include_str!("../../shaders/effects/sleet.frag")),
 ];
 
 /// The effect cozy starts with when none is requested.
