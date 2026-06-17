@@ -58,11 +58,26 @@ fn main() -> Result<()> {
                 .with_context(|| format!("wallpaper not found: {raw}"))?;
             control::send(&Command::SetWallpaper { path })
         }
-        // Client mode: switch the active effect.
+        // Client mode: switch the active effect, or list effects when given no
+        // name. Validate client-side so a typo gets an instant, helpful error
+        // instead of silently failing inside the daemon.
         Some("effect") => {
             args.next();
-            let name = args.next().context("usage: cozy effect <name>")?;
-            control::send(&Command::SetEffect { name })
+            match args.next() {
+                None => {
+                    print_effects();
+                    Ok(())
+                }
+                Some(name) => {
+                    if !render::gl::effect_exists(&name) {
+                        anyhow::bail!(
+                            "unknown effect {name:?}\nknown effects: {}",
+                            render::gl::effect_names()
+                        );
+                    }
+                    control::send(&Command::SetEffect { name })
+                }
+            }
         }
         // Client mode: set weather-driven parameters.
         Some("weather") => {
@@ -103,10 +118,25 @@ fn print_usage() {
          USAGE:\n  \
          cozy [--wallpaper <path>]            run the daemon\n  \
          cozy set <path>                      switch the wallpaper (running daemon)\n  \
-         cozy effect <name>                   switch the rain effect (e.g. droplet, classic)\n  \
+         cozy effect [<name>]                 switch the rain effect, or list effects\n  \
          cozy weather --wind <f> --precip <f> set weather-driven parameters\n  \
-         cozy --help                          show this help"
+         cozy --help                          show this help\n"
     );
+    print_effects();
+}
+
+/// List every registered effect with its description, marking the default.
+fn print_effects() {
+    println!("EFFECTS:");
+    for (name, desc) in render::gl::effect_descriptions() {
+        let marker = if name == render::gl::DEFAULT_EFFECT {
+            "*"
+        } else {
+            " "
+        };
+        println!("  {marker} {name:<9} {desc}");
+    }
+    println!("\n  * default   ·   switch live with `cozy effect <name>`");
 }
 
 /// Parse the daemon's arguments: an optional `--wallpaper <path>`.

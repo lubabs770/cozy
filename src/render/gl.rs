@@ -23,21 +23,39 @@ const VERT_SRC: &str = include_str!("../../shaders/rain.vert");
 /// Note: `droplet` is ported from "Heartfelt" by BigWings and is licensed
 /// CC BY-NC-SA 3.0 (see the shader header), unlike the rest of cozy (MIT).
 /// All other effects are hand-built and MIT.
-const EFFECTS: &[(&str, &str)] = &[
+/// All built-in effects as `(name, description, fragment source)`. The
+/// description is a one-line blurb for `cozy effect` / `--help` listings.
+const EFFECTS: &[(&str, &str, &str)] = &[
     (
         "droplet",
+        "rain on glass, refracting the wallpaper (Heartfelt)",
         include_str!("../../shaders/effects/droplet.frag"),
     ),
     (
         "classic",
+        "slanted streaks with running glass droplets",
         include_str!("../../shaders/effects/classic.frag"),
     ),
     (
         "pouring",
+        "heavy downpour with fog and large drops",
         include_str!("../../shaders/effects/pouring.frag"),
     ),
-    ("snow", include_str!("../../shaders/effects/snow.frag")),
-    ("sleet", include_str!("../../shaders/effects/sleet.frag")),
+    (
+        "ripple",
+        "rain on a water surface, expanding rings",
+        include_str!("../../shaders/effects/ripple.frag"),
+    ),
+    (
+        "snow",
+        "softly drifting snowflakes",
+        include_str!("../../shaders/effects/snow.frag"),
+    ),
+    (
+        "sleet",
+        "fast icy pellets with diagonal streaks",
+        include_str!("../../shaders/effects/sleet.frag"),
+    ),
 ];
 
 /// The effect cozy starts with when none is requested.
@@ -47,23 +65,28 @@ pub const DEFAULT_EFFECT: &str = EFFECTS[0].0;
 fn effect_source(name: &str) -> Result<&'static str> {
     EFFECTS
         .iter()
-        .find(|(n, _)| *n == name)
-        .map(|(_, src)| *src)
+        .find(|(n, _, _)| *n == name)
+        .map(|(_, _, src)| *src)
         .ok_or_else(|| anyhow!("unknown effect: {name:?} (known: {})", effect_names()))
 }
 
 /// Whether `name` is a registered effect (used to validate control commands).
 pub fn effect_exists(name: &str) -> bool {
-    EFFECTS.iter().any(|(n, _)| *n == name)
+    EFFECTS.iter().any(|(n, _, _)| *n == name)
 }
 
 /// Comma-separated list of effect names, for error/help messages.
 pub fn effect_names() -> String {
     EFFECTS
         .iter()
-        .map(|(n, _)| *n)
+        .map(|(n, _, _)| *n)
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// All effects as `(name, description)` pairs, for help/listing output.
+pub fn effect_descriptions() -> impl Iterator<Item = (&'static str, &'static str)> {
+    EFFECTS.iter().map(|(n, d, _)| (*n, *d))
 }
 
 /// Cached uniform locations for the currently linked program. Unused uniforms
