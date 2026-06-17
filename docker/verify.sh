@@ -8,6 +8,8 @@
 #   FRAME_GAP    seconds between screenshots           (default 0.6)
 #   WARMUP       seconds to wait before first capture  (default 1.2)
 #   CARGO_FLAGS  extra flags for `cargo build`         (e.g. --release)
+#   COZY_SWAP_TO path passed to `cozy set <path>` right after frame 0, to
+#                exercise the live wallpaper swap (default: unset = no swap)
 set -euo pipefail
 
 FRAMES="${FRAMES:-3}"
@@ -63,6 +65,16 @@ for n in $(seq 0 $((FRAMES - 1))); do
         echo "   wrote $f"
     else
         echo "!! grim failed (frame $n)" >&2
+    fi
+    # After the first frame, optionally tell the running daemon to switch
+    # wallpaper, so later frames prove the live swap took effect.
+    if [ "$n" -eq 0 ] && [ -n "${COZY_SWAP_TO:-}" ]; then
+        echo "==> cozy set $COZY_SWAP_TO"
+        if "$BIN" set "$COZY_SWAP_TO"; then
+            echo "   swap command sent"
+        else
+            echo "!! cozy set failed" >&2
+        fi
     fi
     sleep "$FRAME_GAP"
 done

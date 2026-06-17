@@ -6,6 +6,7 @@
 //! (configure / close).
 
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 use std::time::Instant;
 
 use smithay_client_toolkit::{
@@ -27,6 +28,7 @@ use wayland_client::{
     Connection, Dispatch, QueueHandle,
 };
 
+use crate::control::Command;
 use crate::render::egl::Egl;
 use crate::surface::RainSurface;
 
@@ -42,8 +44,14 @@ pub struct Cozy {
     layer_shell: LayerShell,
     /// Shared, process-wide EGL state; each surface builds its own context from it.
     egl: Rc<Egl>,
-    /// Encoded wallpaper image; each surface decodes/uploads it on first draw.
-    wallpaper: &'static [u8],
+    /// Encoded wallpaper image; each surface decodes/uploads it lazily. Replaced
+    /// wholesale when a `set` command arrives over the control socket.
+    wallpaper: Vec<u8>,
+    /// Bumped every time `wallpaper` changes; surfaces compare it to know when to
+    /// re-upload their texture rather than re-decoding every frame.
+    wallpaper_gen: u64,
+    /// Control commands from the socket listener thread, drained each frame.
+    commands: Receiver<Command>,
     /// Start time; the elapsed seconds become the shader's `u_time`.
     start: Instant,
     qh: QueueHandle<Cozy>,
@@ -51,13 +59,15 @@ pub struct Cozy {
 }
 
 impl Cozy {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         registry_state: RegistryState,
         output_state: OutputState,
         compositor: CompositorState,
         layer_shell: LayerShell,
         egl: Rc<Egl>,
-        wallpaper: &'static [u8],
+        wallpaper: Vec<u8>,
+        commands: Receiver<Command>,
         qh: QueueHandle<Cozy>,
     ) -> Self {
         Self {
@@ -67,9 +77,27 @@ impl Cozy {
             layer_shell,
             egl,
             wallpaper,
+            wallpaper_gen: 0,
+            commands,
             start: Instant::now(),
             qh,
             surfaces: Vec::new(),
+        }
+    }
+
+    /// Drain any pending control commands. Called once per frame; the animated
+    /// rain keeps frames flowing, so commands apply within ~one frame.
+    fn pump_commands(&mut self) {
+        while let Ok(cmd) = self.commands.try_recv() {
+            match cmd {
+                Command::SetWallpaper { path } => match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        self.wallpaper = bytes;
+                        self.wallpaper_gen = self.wallpaper_gen.wrapping_add(1);
+                    }
+                    Err(e) => eprintln!("cozy: set wallpaper {}: {e}", path.display()),
+                },
+            }
         }
     }
 
@@ -106,6 +134,7 @@ impl Cozy {
     /// Draw a surface, logging (rather than panicking on) any GL/EGL error.
     fn draw_surface(&mut self, index: usize) {
         let time = self.start.elapsed().as_secs_f32();
+        let gen = self.wallpaper_gen;
         let Cozy {
             egl,
             wallpaper,
@@ -114,7 +143,7 @@ impl Cozy {
             ..
         } = self;
         if let Some(s) = surfaces.get_mut(index) {
-            if let Err(e) = s.draw(egl, wallpaper, time, qh) {
+            if let Err(e) = s.draw(egl, wallpaper.as_slice(), gen, time, qh) {
                 eprintln!("cozy: draw error: {e:#}");
             }
         }
@@ -157,6 +186,7 @@ impl CompositorHandler for Cozy {
         surface: &wl_surface::WlSurface,
         _time: u32,
     ) {
+        self.pump_commands();
         if let Some(i) = self.index_of_surface(surface) {
             self.draw_surface(i);
         }

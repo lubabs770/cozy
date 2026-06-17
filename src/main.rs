@@ -1,26 +1,32 @@
 //! cozy — animated rain over your Wayland wallpaper.
 //!
-//! cozy is a `wlr-layer-shell` client that sits on the **Background** layer and
-//! (eventually) renders the wallpaper itself plus two rain effects on top of it:
-//! additive falling streaks and refracting glass droplets, all in one fragment
-//! shader.
+//! cozy is a `wlr-layer-shell` client that sits on the **Background** layer,
+//! renders the wallpaper itself, and composites rain on top of it (additive
+//! falling streaks and refracting glass droplets) in one fragment shader.
+//!
+//! Because cozy owns and draws the wallpaper, it runs *instead of* a separate
+//! wallpaper daemon (swww / hyprpaper / …), not alongside one. Wallpaper
+//! changes arrive over cozy's own control socket so it never needs to restart:
+//!
+//! ```text
+//! cozy                      # run the daemon (embedded fallback wallpaper)
+//! cozy --wallpaper a.png    # run the daemon with an initial wallpaper
+//! cozy set b.png            # tell a running daemon to switch wallpaper
+//! ```
 //!
 //! ## Layout
 //!
 //! * [`app`] — application state and all Wayland event handlers.
+//! * [`control`] — the Unix-socket control protocol (daemon listener + client).
 //! * [`surface`] — one Background layer surface per output, plus its GL drawing.
-//! * [`render`] — EGL/GLES context management (and, later, the shader pipeline).
-//!
-//! ## Milestone status
-//!
-//! M2: each surface brings up an OpenGL ES 3.0 context and clears to a solid
-//! color, proving the EGL pipeline works. M3 swaps the clear for the wallpaper
-//! texture; M4 adds the rain.
+//! * [`render`] — EGL/GLES context management and the shader pipeline.
 
 mod app;
+mod control;
 mod render;
 mod surface;
 
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
@@ -31,13 +37,78 @@ use smithay_client_toolkit::{
 use wayland_client::{globals::registry_queue_init, Connection};
 
 use app::Cozy;
+use control::Command;
 use render::egl::Egl;
 
-/// The wallpaper, embedded for now. M6 will let config point at an arbitrary
-/// file; until then cozy ships with this test image so it renders out of the box.
-const WALLPAPER: &[u8] = include_bytes!("../assets/test-wallpaper.png");
+/// The wallpaper used when none is given on the command line, embedded so cozy
+/// renders something out of the box.
+const DEFAULT_WALLPAPER: &[u8] = include_bytes!("../assets/test-wallpaper.png");
 
 fn main() -> Result<()> {
+    let mut args = std::env::args().skip(1).peekable();
+
+    match args.peek().map(String::as_str) {
+        // Client mode: hand a command to a running daemon and exit.
+        Some("set") => {
+            args.next();
+            let raw = args.next().context("usage: cozy set <wallpaper-path>")?;
+            // Resolve to an absolute path now, while we're in the caller's cwd —
+            // the daemon reads the file from a different working directory.
+            let path = std::fs::canonicalize(&raw)
+                .with_context(|| format!("wallpaper not found: {raw}"))?;
+            control::send(&Command::SetWallpaper { path })
+        }
+        Some("--help") | Some("-h") => {
+            print_usage();
+            Ok(())
+        }
+        // Daemon mode.
+        _ => run_daemon(parse_daemon_args(args)?),
+    }
+}
+
+fn print_usage() {
+    println!(
+        "cozy — animated rain over your Wayland wallpaper\n\n\
+         USAGE:\n  \
+         cozy [--wallpaper <path>]   run the daemon\n  \
+         cozy set <path>             switch the wallpaper of a running daemon\n  \
+         cozy --help                 show this help"
+    );
+}
+
+/// Parse the daemon's arguments: an optional `--wallpaper <path>`.
+fn parse_daemon_args(
+    mut args: std::iter::Peekable<impl Iterator<Item = String>>,
+) -> Result<Option<PathBuf>> {
+    let mut wallpaper = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--wallpaper" | "-w" => {
+                let path = args
+                    .next()
+                    .context("--wallpaper requires a path argument")?;
+                wallpaper = Some(PathBuf::from(path));
+            }
+            other => anyhow::bail!("unexpected argument: {other:?} (try `cozy --help`)"),
+        }
+    }
+    Ok(wallpaper)
+}
+
+fn run_daemon(initial_wallpaper: Option<PathBuf>) -> Result<()> {
+    // Load the initial wallpaper bytes: explicit path, else embedded fallback.
+    let wallpaper = match initial_wallpaper {
+        Some(path) => {
+            std::fs::read(&path).with_context(|| format!("read wallpaper {}", path.display()))?
+        }
+        None => DEFAULT_WALLPAPER.to_vec(),
+    };
+
+    // Start the control socket before Wayland so a switch sent right at startup
+    // is already queued by the time we begin drawing.
+    let commands = control::spawn_listener().context("start control socket")?;
+
     let conn = Connection::connect_to_env().context("connect to Wayland display")?;
     let (globals, mut event_queue) =
         registry_queue_init(&conn).context("initialize Wayland registry")?;
@@ -54,7 +125,8 @@ fn main() -> Result<()> {
         compositor,
         layer_shell,
         egl,
-        WALLPAPER,
+        wallpaper,
+        commands,
         qh.clone(),
     );
 
@@ -67,6 +139,8 @@ fn main() -> Result<()> {
         }
     }
 
+    // Steady state: the animated rain keeps frame callbacks (and thus dispatch)
+    // firing, so queued control commands are drained each frame.
     loop {
         event_queue.blocking_dispatch(&mut state)?;
     }

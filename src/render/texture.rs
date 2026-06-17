@@ -70,4 +70,12 @@ impl Texture {
             height,
         })
     }
+
+    /// Free the underlying GL texture. Call before dropping the last reference
+    /// when replacing a texture, so swapping wallpapers doesn't leak one per
+    /// change. Requires the owning GL context to be current.
+    pub fn delete(&self, gl: &glow::Context) {
+        // SAFETY: a GL context is current and `handle` was created from it.
+        unsafe { gl.delete_texture(self.handle) };
+    }
 }

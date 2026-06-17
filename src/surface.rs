@@ -28,6 +28,11 @@ pub struct RainSurface {
     renderer: Option<Renderer>,
     width: u32,
     height: u32,
+    /// The wallpaper generation this surface's texture currently holds; when it
+    /// trails [`Cozy::wallpaper_gen`] the texture is re-uploaded on next draw.
+    ///
+    /// [`Cozy::wallpaper_gen`]: crate::app::Cozy
+    last_gen: u64,
     /// Set once the compositor has sent its first configure.
     pub configured: bool,
 }
@@ -45,6 +50,7 @@ impl RainSurface {
             renderer: None,
             width: 0,
             height: 0,
+            last_gen: 0,
             configured: false,
         }
     }
@@ -59,14 +65,17 @@ impl RainSurface {
     }
 
     /// Render one frame: ensure the GL context and renderer exist at the current
-    /// size, draw the wallpaper, queue the next frame callback, and present.
+    /// size, (re-)upload the wallpaper if it changed, draw, queue the next frame
+    /// callback, and present.
     ///
-    /// `wallpaper` is the encoded image bytes; the renderer decodes and uploads
-    /// it once (on first draw). M4 layers the rain effects on top of this draw.
+    /// `wallpaper` is the current encoded image bytes and `gen` its generation
+    /// counter; when `gen` advances past what this surface last uploaded, the
+    /// texture is rebuilt (otherwise the bytes are only decoded once).
     pub fn draw(
         &mut self,
         egl: &Rc<Egl>,
         wallpaper: &[u8],
+        gen: u64,
         time: f32,
         qh: &QueueHandle<Cozy>,
     ) -> Result<()> {
@@ -87,9 +96,16 @@ impl RainSurface {
         ctx.resize(w, h);
         ctx.make_current()?;
 
-        // Build the renderer lazily, now that a context is current.
+        // Build the renderer lazily; thereafter re-upload only when the wallpaper
+        // generation advances (a `set` command landed).
         if self.renderer.is_none() {
             self.renderer = Some(Renderer::new(&ctx.gl, wallpaper)?);
+            self.last_gen = gen;
+        } else if gen != self.last_gen {
+            if let Some(r) = self.renderer.as_mut() {
+                r.set_wallpaper(&ctx.gl, wallpaper)?;
+            }
+            self.last_gen = gen;
         }
         let renderer = self.renderer.as_ref().expect("renderer initialized above");
         renderer.draw(&ctx.gl, w, h, time);

@@ -47,6 +47,18 @@ impl Renderer {
         }
     }
 
+    /// Replace the wallpaper texture with a freshly decoded one (used when a
+    /// `set` command swaps the wallpaper at runtime). The old texture is freed.
+    /// Requires a current context. Dimensions may differ from the previous
+    /// wallpaper; `u_tex_resolution` is read from the new texture at draw time,
+    /// so cover-fit stays correct.
+    pub fn set_wallpaper(&mut self, gl: &glow::Context, wallpaper_bytes: &[u8]) -> Result<()> {
+        let new = Texture::from_bytes(gl, wallpaper_bytes)?;
+        self.wallpaper.delete(gl);
+        self.wallpaper = new;
+        Ok(())
+    }
+
     /// Draw one frame into the current framebuffer at `width`×`height`.
     /// `time` is seconds since startup and drives the animated effects.
     pub fn draw(&self, gl: &glow::Context, width: i32, height: i32, time: f32) {
