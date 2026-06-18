@@ -1,8 +1,8 @@
-# gamma branch is (for) now the main!!
 
 
-### cozy
-vid from gamma:
+
+# cozy
+
 
 https://github.com/user-attachments/assets/21bdbe17-fc5d-43c2-938d-a2aa5675c229
 
@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/21bdbe17-fc5d-43c2-938d-a2aa5675c229
 
 
 
-this was written by claude
+this project was written by claude
 
 ### the end goal of this project is to have it hooked up to a weather api taking params like precipitation
 ### wind speed wind direction etc. and applying the shaders accordingly
