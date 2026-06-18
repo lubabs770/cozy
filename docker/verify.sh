@@ -49,6 +49,17 @@ if [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then
     exit 1
 fi
 
+# Optional solid background behind cozy — useful for verifying --overlay, where
+# cozy is transparent except where rain falls and the background should show
+# through. e.g. SWAY_BG="#FF00FF".
+if [ -n "${SWAY_BG:-}" ]; then
+    echo "==> setting sway background to $SWAY_BG"
+    # swaymsg finds the IPC socket via $SWAYSOCK; sway names it in XDG_RUNTIME_DIR.
+    SWAYSOCK="$(ls -t "$XDG_RUNTIME_DIR"/sway-ipc.*.sock 2>/dev/null | head -1)"
+    export SWAYSOCK
+    swaymsg output HEADLESS-1 bg "$SWAY_BG" solid_color || echo "!! swaymsg bg failed" >&2
+fi
+
 echo "==> running cozy ${COZY_ARGS:-}"
 "$BIN" ${COZY_ARGS:-} >/tmp/cozy.log 2>&1 &
 COZY_PID=$!

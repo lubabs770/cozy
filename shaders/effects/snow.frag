@@ -16,6 +16,9 @@ uniform sampler2D u_wallpaper;
 uniform float     u_time;
 uniform float     u_wind;
 uniform float     u_intensity;
+// When true, output premultiplied alpha (transparent except where snow falls)
+// so cozy can composite over an external wallpaper. Default false = opaque.
+uniform bool      u_overlay;
 
 vec2 cover_uv(vec2 uv, vec2 res, vec2 tex_res) {
     float scale  = max(res.x / tex_res.x, res.y / tex_res.y);
@@ -44,7 +47,7 @@ float snowLayer(vec2 uv, float t, float cells, float speed, float r) {
 
             float s0     = hash11(cell.x * 127.1 + cell.y * 311.7);
             float s1     = hash11(s0 * 7919.0);
-            float active = step(0.3, hash11(s1 * 3571.0)); // ~70 % spawn rate
+            float present = step(0.3, hash11(s1 * 3571.0)); // ~70 % spawn rate
 
             // Sawtooth fall phase, phase-shifted per flake so they're not in sync.
             float phase = fract(s0 + t * speed * (0.7 + s1 * 0.6));
@@ -56,7 +59,7 @@ float snowLayer(vec2 uv, float t, float cells, float speed, float r) {
             float cy = phase;
 
             float d = length(loc - vec2(cx, cy));
-            acc = max(acc, smoothstep(r, r * 0.3, d) * active);
+            acc = max(acc, smoothstep(r, r * 0.3, d) * present);
         }
     }
     return acc;
@@ -72,7 +75,13 @@ void main() {
     float far  = snowLayer(v_uv, u_time, 40.0, 0.24, 0.12) * density;
 
     float snow  = clamp(near + mid * 0.65 + far * 0.4, 0.0, 1.0);
-    vec3  color = base + vec3(0.92, 0.96, 1.0) * snow * 0.88;
+    vec3  flake = vec3(0.92, 0.96, 1.0) * snow * 0.88;
 
-    frag_color = vec4(color, 1.0);
+    if (u_overlay) {
+        // Show only the flakes; transparent elsewhere so the external wallpaper
+        // shows through. Premultiplied alpha (rgb already scaled by coverage).
+        frag_color = vec4(flake, snow);
+    } else {
+        frag_color = vec4(base + flake, 1.0);
+    }
 }

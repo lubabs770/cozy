@@ -116,7 +116,7 @@ fn print_usage() {
     println!(
         "cozy — animated rain over your Wayland wallpaper\n\n\
          USAGE:\n  \
-         cozy [--wallpaper <path>]            run the daemon\n  \
+         cozy [--wallpaper <path>] [--overlay]  run the daemon\n  \
          cozy set <path>                      switch the wallpaper (running daemon)\n  \
          cozy effect [<name>]                 switch the rain effect, or list effects\n  \
          cozy weather --wind <f> --precip <f> set weather-driven parameters\n  \
@@ -139,11 +139,21 @@ fn print_effects() {
     println!("\n  * default   ·   switch live with `cozy effect <name>`");
 }
 
-/// Parse the daemon's arguments: an optional `--wallpaper <path>`.
+/// Parsed daemon arguments.
+struct DaemonArgs {
+    /// Initial wallpaper, or `None` to use the embedded fallback.
+    wallpaper: Option<PathBuf>,
+    /// Run as a transparent overlay above an external wallpaper daemon
+    /// (`--overlay`) instead of owning the wallpaper itself.
+    overlay: bool,
+}
+
+/// Parse the daemon's arguments: an optional `--wallpaper <path>` and `--overlay`.
 fn parse_daemon_args(
     mut args: std::iter::Peekable<impl Iterator<Item = String>>,
-) -> Result<Option<PathBuf>> {
+) -> Result<DaemonArgs> {
     let mut wallpaper = None;
+    let mut overlay = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--wallpaper" | "-w" => {
@@ -152,15 +162,18 @@ fn parse_daemon_args(
                     .context("--wallpaper requires a path argument")?;
                 wallpaper = Some(PathBuf::from(path));
             }
+            "--overlay" => overlay = true,
             other => anyhow::bail!("unexpected argument: {other:?} (try `cozy --help`)"),
         }
     }
-    Ok(wallpaper)
+    Ok(DaemonArgs { wallpaper, overlay })
 }
 
-fn run_daemon(initial_wallpaper: Option<PathBuf>) -> Result<()> {
+fn run_daemon(args: DaemonArgs) -> Result<()> {
     // Load the initial wallpaper bytes: explicit path, else embedded fallback.
-    let wallpaper = match initial_wallpaper {
+    // In overlay mode this image is used only as a refraction source, never
+    // drawn as an opaque base.
+    let wallpaper = match args.wallpaper {
         Some(path) => {
             std::fs::read(&path).with_context(|| format!("read wallpaper {}", path.display()))?
         }
@@ -188,6 +201,7 @@ fn run_daemon(initial_wallpaper: Option<PathBuf>) -> Result<()> {
         layer_shell,
         egl,
         wallpaper,
+        args.overlay,
         commands,
         qh.clone(),
     );

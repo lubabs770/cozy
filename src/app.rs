@@ -60,6 +60,10 @@ pub struct Cozy {
     /// (0..1). Defaults until a weather source drives them in a later phase.
     wind: f32,
     intensity: f32,
+    /// Run as a transparent overlay above an external wallpaper daemon instead
+    /// of owning the wallpaper. Changes the layer (Bottom, not Background), drops
+    /// the opaque region, and tells shaders to output premultiplied alpha.
+    overlay: bool,
     /// Control commands from the socket listener thread, drained each frame.
     commands: Receiver<Command>,
     /// Start time; the elapsed seconds become the shader's `u_time`.
@@ -77,6 +81,7 @@ impl Cozy {
         layer_shell: LayerShell,
         egl: Rc<Egl>,
         wallpaper: Vec<u8>,
+        overlay: bool,
         commands: Receiver<Command>,
         qh: QueueHandle<Cozy>,
     ) -> Self {
@@ -92,6 +97,7 @@ impl Cozy {
             effect_gen: 0,
             wind: 0.0,
             intensity: 0.7,
+            overlay,
             commands,
             start: Instant::now(),
             qh,
@@ -145,10 +151,17 @@ impl Cozy {
         surface.set_input_region(Some(&region));
         region.destroy();
 
+        // Overlay mode sits on the Bottom layer, just above the wallpaper drawn
+        // by an external daemon; opaque mode owns the Background layer itself.
+        let layer_kind = if self.overlay {
+            Layer::Bottom
+        } else {
+            Layer::Background
+        };
         let layer = self.layer_shell.create_layer_surface(
             &self.qh,
             surface,
-            Layer::Background,
+            layer_kind,
             Some("cozy"),
             Some(&output),
         );
@@ -171,6 +184,7 @@ impl Cozy {
             effect_gen,
             wind,
             intensity,
+            overlay,
             surfaces,
             qh,
             ..
@@ -183,6 +197,7 @@ impl Cozy {
             time,
             wind: *wind,
             intensity: *intensity,
+            overlay: *overlay,
         };
         if let Some(s) = surfaces.get_mut(index) {
             if let Err(e) = s.draw(egl, &params, qh) {
@@ -300,15 +315,19 @@ impl LayerShellHandler for Cozy {
         }
         self.surfaces[index].set_size(w, h);
 
-        // Mark the whole surface opaque so the compositor can skip painting
-        // anything behind it: cozy owns every pixel of the background.
-        let opaque = self.compositor.wl_compositor().create_region(qh, ());
-        opaque.add(0, 0, w as i32, h as i32);
-        self.surfaces[index]
-            .layer
-            .wl_surface()
-            .set_opaque_region(Some(&opaque));
-        opaque.destroy();
+        // In opaque mode, mark the whole surface opaque so the compositor can
+        // skip painting anything behind it: cozy owns every pixel. In overlay
+        // mode we must NOT do this — the compositor has to alpha-blend cozy over
+        // the external wallpaper showing through our transparent pixels.
+        if !self.overlay {
+            let opaque = self.compositor.wl_compositor().create_region(qh, ());
+            opaque.add(0, 0, w as i32, h as i32);
+            self.surfaces[index]
+                .layer
+                .wl_surface()
+                .set_opaque_region(Some(&opaque));
+            opaque.destroy();
+        }
 
         self.draw_surface(index);
     }

@@ -32,6 +32,9 @@ pub struct FrameParams<'a> {
     /// Weather-driven wind skew and rain intensity.
     pub wind: f32,
     pub intensity: f32,
+    /// Overlay mode: shaders output premultiplied alpha so the surface is
+    /// transparent except where rain is drawn.
+    pub overlay: bool,
 }
 
 /// A fullscreen, click-through Background layer surface bound to one output.
@@ -132,7 +135,7 @@ impl RainSurface {
             }
         }
         let renderer = self.renderer.as_ref().expect("renderer initialized above");
-        renderer.draw(&ctx.gl, w, h, p.time, p.wind, p.intensity);
+        renderer.draw(&ctx.gl, w, h, p.time, p.wind, p.intensity, p.overlay);
 
         // Queue the next frame before presenting; swap_buffers commits the
         // surface, carrying this callback request with it.

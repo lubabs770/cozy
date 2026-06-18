@@ -100,6 +100,7 @@ struct Uniforms {
     time: Option<glow::UniformLocation>,
     wind: Option<glow::UniformLocation>,
     intensity: Option<glow::UniformLocation>,
+    overlay: Option<glow::UniformLocation>,
 }
 
 impl Uniforms {
@@ -113,6 +114,7 @@ impl Uniforms {
                 time: gl.get_uniform_location(program, "u_time"),
                 wind: gl.get_uniform_location(program, "u_wind"),
                 intensity: gl.get_uniform_location(program, "u_intensity"),
+                overlay: gl.get_uniform_location(program, "u_overlay"),
             }
         }
     }
@@ -181,7 +183,9 @@ impl Renderer {
 
     /// Draw one frame into the current framebuffer at `width`×`height`.
     /// `time` is seconds since startup; `wind`/`intensity` are the (future
-    /// weather-driven) effect parameters.
+    /// weather-driven) effect parameters; `overlay` selects premultiplied-alpha
+    /// output for transparent compositing.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &self,
         gl: &glow::Context,
@@ -190,6 +194,7 @@ impl Renderer {
         time: f32,
         wind: f32,
         intensity: f32,
+        overlay: bool,
     ) {
         // SAFETY: a GL context is current; all handles were created from it.
         unsafe {
@@ -213,6 +218,7 @@ impl Renderer {
             gl.uniform_1_f32(self.uniforms.time.as_ref(), time);
             gl.uniform_1_f32(self.uniforms.wind.as_ref(), wind);
             gl.uniform_1_f32(self.uniforms.intensity.as_ref(), intensity);
+            gl.uniform_1_i32(self.uniforms.overlay.as_ref(), overlay as i32);
 
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
         }
