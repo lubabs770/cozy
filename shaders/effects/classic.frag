@@ -21,6 +21,9 @@ uniform vec2 u_resolution;     // output size in pixels
 uniform vec2 u_tex_resolution; // wallpaper size in pixels
 uniform sampler2D u_wallpaper;
 uniform float u_time;          // seconds since start, drives all motion
+// When true, output premultiplied alpha (transparent where the effect leaves
+// the wallpaper unchanged) so cozy can composite over an external wallpaper.
+uniform bool u_overlay;
 
 // A shared wind skew (x-shift per unit of y) applied to every effect, so the
 // streaks and (later) droplets read as one coherent storm. Promoted to a config
@@ -209,5 +212,13 @@ void main() {
         color = mix(color, shade_glass(refracted_base(n_slide, aspect_x), n_slide), m_slide);
     }
 
-    frag_color = vec4(color, 1.0);
+    if (u_overlay) {
+        // Transparent where cozy left the wallpaper untouched; opaque where it
+        // added streaks/droplets. Premultiplied alpha for the compositor.
+        vec3 plain = texture(u_wallpaper, cover_uv(v_uv, u_resolution, u_tex_resolution)).rgb;
+        float a = clamp(length(color - plain) * 4.0, 0.0, 1.0);
+        frag_color = vec4(color * a, a);
+    } else {
+        frag_color = vec4(color, 1.0);
+    }
 }

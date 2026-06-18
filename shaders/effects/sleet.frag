@@ -16,6 +16,9 @@ uniform sampler2D u_wallpaper;
 uniform float     u_time;
 uniform float     u_wind;
 uniform float     u_intensity;
+// When true, output premultiplied alpha (transparent where the effect leaves
+// the wallpaper unchanged) so cozy can composite over an external wallpaper.
+uniform bool      u_overlay;
 
 vec2 cover_uv(vec2 uv, vec2 res, vec2 tex_res) {
     float scale  = max(res.x / tex_res.x, res.y / tex_res.y);
@@ -78,14 +81,14 @@ float icePellets(vec2 uv, float t) {
 
             float s0     = hash11(cell.x * 127.1 + cell.y * 311.7);
             float s1     = hash11(s0 * 7919.0);
-            float active = step(0.45, s0); // ~55 % spawn rate
+            float present = step(0.45, s0); // ~55 % spawn rate
 
             float phase = fract(s0 + t * PELLET_SPEED * (0.8 + s1 * 0.4));
             float cx    = 0.5 + (s1 - 0.5) * 0.5 + angle * phase * 0.35;
             float cy    = phase;
 
             float d = length(loc - vec2(cx, cy));
-            acc = max(acc, smoothstep(PELLET_R, PELLET_R * 0.8, d) * active);
+            acc = max(acc, smoothstep(PELLET_R, PELLET_R * 0.8, d) * present);
         }
     }
     return acc;
@@ -106,5 +109,11 @@ void main() {
         + vec3(0.75, 0.82, 0.96) * s * 0.55 * density
         + vec3(0.88, 0.93, 1.00) * p * 0.75 * density;
 
-    frag_color = vec4(color, 1.0);
+    if (u_overlay) {
+        vec3 plain = texture(u_wallpaper, cover_uv(v_uv, u_resolution, u_tex_resolution)).rgb;
+        float a = clamp(length(color - plain) * 4.0, 0.0, 1.0);
+        frag_color = vec4(color * a, a);
+    } else {
+        frag_color = vec4(color, 1.0);
+    }
 }
