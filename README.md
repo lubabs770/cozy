@@ -75,9 +75,22 @@ cozy effect snow                    # switch effect live
 
 `cozy-wall` is the one command you need: it applies the change to the running daemon *and* records it in `cozy.conf` so `cozy-session` restores it next login. Undo: delete the `source` line from `hyprland.conf` (or restore `.cozy-bak`) and remove `~/.config/cozy` + the binaries.
 
-### 3. Alongside swww/hyprpaper — *coming soon*
+### 3. Alongside swww/hyprpaper (overlay)
 
-Run cozy as a transparent rain **overlay** above an existing `swww`/`hyprpaper` wallpaper (cozy's `--overlay` mode, with droplets refracting a synced copy of the image). Not available yet — see [the design doc](docs/superpowers/specs/2026-06-18-cozy-multi-integration-monorepo-design.md). Until then, use the standalone integration.
+Keep your existing `swww`/`hyprpaper` daemon drawing the wallpaper, and run cozy as a transparent rain **overlay** on top (`cozy --overlay`). The installer:
+
+- installs `cozy` + `cozy-session` (launches `cozy --overlay`) + `cozy-wall` to `~/.local/bin`,
+- writes `~/.config/cozy/cozy.conf` and a sourced `~/.config/cozy/hyprland.conf` (`exec-once` + keybinds), and
+- adds the same single `source = …` line to your `hyprland.conf` (backed up).
+
+`cozy-wall` sets the wallpaper on **both** your daemon (auto-detecting swww or hyprpaper) and cozy's refraction copy, keeping them in sync:
+
+```sh
+cozy-wall ~/Pictures/sunset.jpg     # swww/hyprpaper + cozy, in one command
+cozy effect classic                 # overlay-friendly: snow | classic | sleet
+```
+
+> **Overlay effect support:** `snow`, `classic`, and `sleet` composite transparently over your wallpaper today. `droplet`, `ripple`, and `pouring` still render opaque in overlay (they cover the wallpaper) — per-effect transparency for those is in progress (see [the design doc](docs/superpowers/specs/2026-06-18-cozy-multi-integration-monorepo-design.md)).
 
 > Advanced: each integration is also runnable directly from a checkout — `git clone` the repo and run `integrations/<name>/install.sh`.
 

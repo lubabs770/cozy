@@ -66,7 +66,7 @@ label_of() {
     case "$1" in
         caelestia)  echo "caelestia    — cozy owns the wallpaper, wired into Caelestia" ;;
         standalone) echo "standalone   — cozy owns the wallpaper on plain Hyprland" ;;
-        swww)       echo "swww-overlay — cozy rains over swww/hyprpaper  (Phase 2 — not yet available)" ;;
+        swww)       echo "swww-overlay — cozy rains as a transparent overlay over swww/hyprpaper" ;;
     esac
 }
 

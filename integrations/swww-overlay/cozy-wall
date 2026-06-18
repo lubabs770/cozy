@@ -1,0 +1,59 @@
+#!/bin/sh
+# cozy-wall (swww-overlay) — change the wallpaper everywhere at once.
+#
+# In overlay mode the wallpaper lives in two places: your swww/hyprpaper daemon
+# draws it, and cozy keeps a copy as its refraction source. cozy-wall sets BOTH
+# (auto-detecting whichever daemon is running) and records the path in
+# ~/.config/cozy/cozy.conf so cozy-session restores it next login.
+#
+#   cozy-wall ~/Pictures/sunset.jpg
+
+set -eu
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/cozy/cozy.conf"
+
+if [ "$#" -ne 1 ]; then
+    echo "usage: cozy-wall <wallpaper-path>" >&2
+    exit 2
+fi
+
+wall="$1"
+case "$wall" in
+    "~/"*) wall="$HOME/${wall#"~/"}" ;;
+esac
+case "$wall" in
+    /*) ;;
+    *)  wall="$(pwd)/$wall" ;;
+esac
+
+[ -r "$wall" ] || { printf 'cozy-wall: not readable: %s\n' "$wall" >&2; exit 1; }
+
+# 1. Drive whichever wallpaper daemon is present.
+if command -v swww >/dev/null 2>&1 && pgrep -x swww-daemon >/dev/null 2>&1; then
+    swww img "$wall" || echo "cozy-wall: swww img failed" >&2
+elif command -v hyprctl >/dev/null 2>&1 && pgrep -x hyprpaper >/dev/null 2>&1; then
+    # hyprpaper needs the path preloaded before it can be set.
+    hyprctl hyprpaper preload "$wall" >/dev/null 2>&1 || true
+    hyprctl hyprpaper wallpaper ",$wall" || echo "cozy-wall: hyprpaper set failed" >&2
+else
+    echo "cozy-wall: no running swww/hyprpaper found — setting cozy only" >&2
+fi
+
+# 2. Update cozy's refraction source live (if the daemon is running).
+if ! cozy set "$wall"; then
+    echo "cozy-wall: cozy not reachable — saved to config for next start" >&2
+fi
+
+# 3. Persist into cozy.conf (replace or append the wallpaper= line).
+mkdir -p "$(dirname "$CONFIG")"
+[ -f "$CONFIG" ] || : > "$CONFIG"
+tmp="$(mktemp)"
+WALL="$wall" awk '
+    /^[[:space:]]*wallpaper=/ { print "wallpaper=\"" ENVIRON["WALL"] "\""; found=1; next }
+    { print }
+    END { if (!found) print "wallpaper=\"" ENVIRON["WALL"] "\"" }
+' "$CONFIG" > "$tmp"
+cat "$tmp" > "$CONFIG"
+rm -f "$tmp"
+
+printf 'cozy-wall: wallpaper set to %s\n' "$wall"
