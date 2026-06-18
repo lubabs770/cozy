@@ -24,7 +24,7 @@ shader uniform contract; effects are switched live over a Unix control socket.
 ## Shaders
 
 - [shaders/rain.vert](shaders/rain.vert): fullscreen triangle
-- [shaders/effects/](shaders/effects/): one fragment shader per effect — `droplet` (refraction, ported from Heartfelt; CC BY-NC-SA), `classic`, `pouring`, `ripple`, `sleet`, `snow`. Each honors `u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`, `u_overlay` (and defines its own coverage alpha for overlay mode).
+- [shaders/effects/](shaders/effects/): one fragment shader per effect — `droplet` (rain on glass, ported from Heartfelt; CC BY-NC-SA), `ripple` (water surface, MIT), `snow` (parallax snow, ported from Just Snow; CC BY-NC-SA). Each honors `u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`, `u_overlay` (and defines its own coverage alpha for overlay mode).
 
 ## Integrations (install glue — one binary, three profiles)
 

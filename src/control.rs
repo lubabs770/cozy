@@ -35,7 +35,7 @@ use anyhow::{anyhow, Context, Result};
 pub enum Command {
     /// Replace the wallpaper with the image at this path.
     SetWallpaper { path: PathBuf },
-    /// Switch the active rain effect (e.g. `droplet`, `classic`).
+    /// Switch the active rain effect (e.g. `droplet`, `snow`).
     SetEffect { name: String },
     /// Set the weather-driven parameters: `wind` (horizontal skew) and `precip`
     /// (rain intensity, 0..1). Sent live by a weather poller in a later phase.

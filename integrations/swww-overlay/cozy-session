@@ -8,9 +8,8 @@
 # control socket is up. Installed as ~/.local/bin/cozy-session and launched via
 # `exec-once` in Hyprland.
 #
-# NOTE: not every effect is transparent in overlay mode yet. snow, classic and
-# sleet composite over the daemon's wallpaper; droplet, ripple and pouring still
-# render opaque (they cover the wallpaper). Default below is "classic".
+# All effects (droplet, ripple, snow) composite transparently in overlay mode:
+# cozy stays clear between drops/flakes so the daemon's wallpaper shows through.
 
 set -u
 

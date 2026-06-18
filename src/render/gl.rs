@@ -32,16 +32,6 @@ const EFFECTS: &[(&str, &str, &str)] = &[
         include_str!("../../shaders/effects/droplet.frag"),
     ),
     (
-        "classic",
-        "slanted streaks with running glass droplets",
-        include_str!("../../shaders/effects/classic.frag"),
-    ),
-    (
-        "pouring",
-        "heavy downpour with fog and large drops",
-        include_str!("../../shaders/effects/pouring.frag"),
-    ),
-    (
         "ripple",
         "rain on a water surface, expanding rings",
         include_str!("../../shaders/effects/ripple.frag"),
@@ -50,11 +40,6 @@ const EFFECTS: &[(&str, &str, &str)] = &[
         "snow",
         "multi-layer parallax snow with depth-of-field (Just Snow)",
         include_str!("../../shaders/effects/snow.frag"),
-    ),
-    (
-        "sleet",
-        "fast icy pellets with diagonal streaks",
-        include_str!("../../shaders/effects/sleet.frag"),
     ),
 ];
 

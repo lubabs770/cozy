@@ -11,7 +11,7 @@
 #   COZY_SWAP_TO path passed to `cozy set <path>` right after frame 0, to
 #                exercise the live wallpaper swap (default: unset = no swap)
 #   COZY_POST    a cozy client subcommand run right after frame 0, e.g.
-#                "effect classic" or "weather --wind 0.6 --precip 1.0"
+#                "effect snow" or "weather --wind 0.6 --precip 1.0"
 set -euo pipefail
 
 FRAMES="${FRAMES:-3}"

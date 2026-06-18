@@ -107,13 +107,15 @@ Implementation notes:
 Verification of this mode needs the Linux container harness (`make verify`) —
 the only part of the project that needs real GPU/compositor checking.
 
-> **Status (done):** all six effects ship overlay coverage. snow/classic/sleet
-> carry alpha on flakes/streaks; droplet/ripple/pouring derive coverage from
-> their own rain signal (drop mask + trails + lens slope; ripple height +
-> displacement + streaks; pouring fog veil composited as a real grey layer plus
-> additive streaks and glass droplets). Earlier generic `length(color - plain)`
-> coverage was abandoned — it amplified wallpaper detail into grid/X artifacts;
-> internal-signal coverage is clean (verified visually in the container).
+> **Status (done):** every effect ships overlay coverage. `snow` carries alpha
+> on the flakes; `droplet` and `ripple` derive coverage from their own rain
+> signal (drop mask + trails + lens slope; ripple height + displacement +
+> streaks). Earlier generic `length(color - plain)` coverage was abandoned — it
+> amplified wallpaper detail into grid/X artifacts; internal-signal coverage is
+> clean (verified visually in the container).
+>
+> (The hand-built `classic`, `pouring`, and `sleet` effects were later removed in
+> favour of the ported `droplet`/`snow` + `ripple`; they also had overlay paths.)
 
 ## swww-overlay integration — Phase 2
 

@@ -38,11 +38,11 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 
 ## Effects
 
-cozy ships six swappable effects, switched live with `cozy effect <name>`. Here they are cycled over the same wallpaper — `droplet`, `classic`, `pouring`, `ripple`, `snow`, then `sleet`:
+cozy ships three swappable effects, switched live with `cozy effect <name>`. Here they are cycled over the same wallpaper — `droplet`, `ripple`, then `snow`:
 
-![cozy cycling through all six rain effects: droplet, classic, pouring, ripple, snow, sleet](docs/effects.gif)
+![cozy cycling through its three effects: droplet, ripple, snow](docs/effects.gif)
 
-`droplet` refracts the wallpaper through rain on glass; `classic` runs hand-built slanted streaks with sliding droplets; `pouring` is a heavy downpour with fog; `ripple` treats the wallpaper as a water surface struck by drops; `snow` and `sleet` drift flakes and drive icy pellets. Each also has a transparent [overlay](#3-alongside-swwwhyprpaper-overlay) variant.
+`droplet` refracts the wallpaper through rain on glass (ported from BigWings' "Heartfelt"); `ripple` treats the wallpaper as a water surface struck by drops; `snow` is multi-layer parallax snowfall with depth-of-field (ported from Andrew Baldwin's "Just Snow"). Each also has a transparent [overlay](#3-alongside-swwwhyprpaper-overlay) variant.
 
 <br>
 
@@ -100,7 +100,7 @@ cozy-wall ~/Pictures/sunset.jpg     # swww/hyprpaper + cozy, in one command
 cozy effect droplet                 # any effect works in overlay
 ```
 
-> **Overlay effect support:** every effect now composites transparently over your wallpaper — `snow`, `classic`, and `sleet` carry alpha only where flakes/streaks fall, while `droplet`, `ripple`, and `pouring` refract your daemon's wallpaper through the rain and let it show through the dry surface between drops (the `pouring` fog reads as a light grey veil). Each effect derives its own coverage from its internal rain signal, so the wallpaper daemon keeps drawing everything cozy leaves transparent.
+> **Overlay effect support:** every effect composites transparently over your wallpaper — `snow` carries alpha only where flakes fall, while `droplet` and `ripple` refract your daemon's wallpaper through the rain and let it show through the dry surface between drops. Each effect derives its own coverage from its internal rain signal, so the wallpaper daemon keeps drawing everything cozy leaves transparent.
 
 > Advanced: each integration is also runnable directly from a checkout — `git clone` the repo and run `integrations/<name>/install.sh`.
 
@@ -130,7 +130,7 @@ Drive a running instance with the same binary (point your wallpaper keybind / ro
 ```sh
 cozy --wallpaper ~/walls/now.jpg        # start with a wallpaper
 cozy set ~/walls/next.jpg               # switch wallpaper live, no restart
-cozy effect classic                     # switch effect (droplet | classic | pouring | ripple | snow | sleet)
+cozy effect snow                        # switch effect (droplet | ripple | snow)
 cozy weather --wind 0.4 --precip 0.9    # set wind skew + rain intensity
 ```
 
@@ -144,7 +144,7 @@ Stop it with `Ctrl-C` (or `kill`); the layer surfaces and GL contexts are torn d
 
 ## Configuration
 
-A TOML config file (`cozy.toml`) is planned and will expose the tunables below. Until then `wind` and rain intensity are set live with `cozy weather`, and the `classic` effect's parameters live as named constants at the top of each stage in `shaders/effects/classic.frag`.
+A TOML config file (`cozy.toml`) is planned and will expose the tunables below. Until then `wind` and rain intensity are set live with `cozy weather`, and each effect's parameters live as named constants at the top of its shader in `shaders/effects/`.
 
 | Knob | Meaning |
 |---|---|
@@ -193,11 +193,8 @@ shaders/
   rain.vert          fullscreen triangle
   effects/
     droplet.frag     rain on glass, refracting the wallpaper (ported from Heartfelt)
-    classic.frag     slanted streaks with running glass droplets
-    pouring.frag     heavy downpour with fog and large drops
     ripple.frag      rain on a water surface, expanding rings
     snow.frag        multi-layer parallax snow with DoF (ported from Just Snow)
-    sleet.frag       fast icy pellets with diagonal streaks
 ```
 
 Each effect is a fragment shader honouring a shared uniform contract (`u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`, `u_overlay`), registered in `gl.rs` and switched live — so adding an effect is one shader file plus one table entry. In overlay mode each effect also derives its own coverage alpha from its internal rain signal, so it composites cleanly over an external wallpaper.

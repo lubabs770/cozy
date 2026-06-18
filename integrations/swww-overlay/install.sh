@@ -68,9 +68,9 @@ else
 wallpaper=""
 
 # Rain/snow effect. All effects composite transparently in overlay mode:
-#   droplet | classic | ripple | pouring | snow | sleet
-# (droplet/ripple/pouring refract your wallpaper through the rain; snow/classic/
-#  sleet drop flakes/streaks. Everything between stays transparent.)
+#   droplet | ripple | snow
+# (droplet/ripple refract your wallpaper through the rain; snow drops flakes.
+#  Everything between stays transparent.)
 effect="droplet"
 
 # Weather knobs applied at startup (also settable live: cozy weather …).
@@ -112,9 +112,9 @@ exec-once = $BIN_DIR/cozy-session
 # --- cozy keybinds (preshipped — edit keys/paths to taste) ------------------
 # Change the wallpaper on BOTH the daemon and cozy, and remember it:
 bind = \$mainMod, W, exec, $BIN_DIR/cozy-wall ~/Pictures/wallpaper.jpg
-# Switch the rain effect live (all work in overlay: droplet | classic | ripple | pouring | snow | sleet):
+# Switch the rain effect live (all work in overlay: droplet | ripple | snow):
 bind = \$mainMod, R, exec, cozy effect droplet
-bind = \$mainMod SHIFT, R, exec, cozy effect classic
+bind = \$mainMod SHIFT, R, exec, cozy effect snow
 EOF
     ok "Wrote $COZY_HYPR (with preshipped keybinds)"
 else
@@ -129,9 +129,9 @@ exec-once = $BIN_DIR/cozy-session
 # --- cozy keybinds (examples — uncomment / edit, or define your own) --------
 # Change the wallpaper on BOTH the daemon and cozy, and remember it:
 # bind = \$mainMod, W, exec, $BIN_DIR/cozy-wall ~/Pictures/wallpaper.jpg
-# Switch the rain effect live (all work in overlay: droplet | classic | ripple | pouring | snow | sleet):
+# Switch the rain effect live (all work in overlay: droplet | ripple | snow):
 # bind = \$mainMod, R, exec, cozy effect droplet
-# bind = \$mainMod SHIFT, R, exec, cozy effect classic
+# bind = \$mainMod SHIFT, R, exec, cozy effect snow
 EOF
     ok "Wrote $COZY_HYPR (keybinds commented — set your own)"
 fi
@@ -157,5 +157,5 @@ printf '%scozy is installed as a rain overlay (swww-overlay).%s\n' "$GRN$BOLD" "
 info "Keep running swww/hyprpaper — cozy rains on top of it."
 info "Change wallpaper (daemon + cozy):  cozy-wall ~/Pictures/your-wall.jpg"
 info "Then reload Hyprland (hyprctl reload) or relog to start cozy."
-info "Switch effects live:               cozy effect droplet|classic|ripple|pouring|snow|sleet"
+info "Switch effects live:               cozy effect droplet|ripple|snow"
 info "Config:                            $COZY_CONF"

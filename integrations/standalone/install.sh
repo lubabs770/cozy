@@ -62,7 +62,7 @@ else
 # Tip: change this live (and update this file) with:  cozy-wall <path>
 wallpaper=""
 
-# Rain/snow effect: droplet | classic | pouring | ripple | sleet | snow
+# Rain/snow effect: droplet | ripple | snow
 effect="droplet"
 
 # Weather knobs applied at startup (also settable live: cozy weather …).
@@ -106,8 +106,8 @@ exec-once = $BIN_DIR/cozy-session
 # --- cozy keybinds (preshipped — edit keys/paths to taste) ------------------
 # Change the wallpaper live AND remember it across reboots:
 bind = \$mainMod, W, exec, $BIN_DIR/cozy-wall ~/Pictures/wallpaper.jpg
-# Switch the rain effect live (droplet | classic | pouring | ripple | sleet | snow):
-bind = \$mainMod, R, exec, cozy effect classic
+# Switch the rain effect live (droplet | ripple | snow):
+bind = \$mainMod, R, exec, cozy effect snow
 bind = \$mainMod SHIFT, R, exec, cozy effect droplet
 EOF
     ok "Wrote $COZY_HYPR (with preshipped keybinds)"
@@ -123,8 +123,8 @@ exec-once = $BIN_DIR/cozy-session
 # --- cozy keybinds (examples — uncomment / edit, or define your own) --------
 # Change the wallpaper live AND remember it across reboots:
 # bind = \$mainMod, W, exec, $BIN_DIR/cozy-wall ~/Pictures/wallpaper.jpg
-# Switch the rain effect live (droplet | classic | pouring | ripple | sleet | snow):
-# bind = \$mainMod, R, exec, cozy effect classic
+# Switch the rain effect live (droplet | ripple | snow):
+# bind = \$mainMod, R, exec, cozy effect snow
 # bind = \$mainMod SHIFT, R, exec, cozy effect droplet
 EOF
     ok "Wrote $COZY_HYPR (keybinds commented — set your own)"
