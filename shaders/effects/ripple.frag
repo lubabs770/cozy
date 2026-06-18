@@ -20,6 +20,7 @@ uniform sampler2D u_wallpaper;
 uniform float     u_time;
 uniform float     u_wind;
 uniform float     u_intensity;
+uniform bool      u_overlay;     // true: transparent on the still water between rings
 
 vec2 cover_uv(vec2 uv, vec2 res, vec2 tex_res) {
     float scale  = max(res.x / tex_res.x, res.y / tex_res.y);
@@ -139,5 +140,14 @@ void main() {
     float s = streaks(v_uv, u_time, u_wind);
     vec3 color = base + STREAK_TINT * s * mix(0.18, 0.34, intensity);
 
-    frag_color = vec4(color, 1.0);
+    if (u_overlay) {
+        // Coverage from the surface state: |h| is the wavefront height (crests
+        // and troughs), |disp| the refractive tilt, and s the falling streaks.
+        // Flat, undisturbed water stays transparent so the daemon wallpaper
+        // reads as the calm surface.
+        float cover = clamp(abs(h) * 1.4 + length(disp) * 6.0 + s, 0.0, 1.0);
+        frag_color = vec4(color * cover, cover);
+    } else {
+        frag_color = vec4(color, 1.0);
+    }
 }

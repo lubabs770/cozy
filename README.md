@@ -87,10 +87,10 @@ Keep your existing `swww`/`hyprpaper` daemon drawing the wallpaper, and run cozy
 
 ```sh
 cozy-wall ~/Pictures/sunset.jpg     # swww/hyprpaper + cozy, in one command
-cozy effect classic                 # overlay-friendly: snow | classic | sleet
+cozy effect droplet                 # any effect works in overlay
 ```
 
-> **Overlay effect support:** `snow`, `classic`, and `sleet` composite transparently over your wallpaper today. `droplet`, `ripple`, and `pouring` still render opaque in overlay (they cover the wallpaper) — per-effect transparency for those is in progress (see [the design doc](docs/superpowers/specs/2026-06-18-cozy-multi-integration-monorepo-design.md)).
+> **Overlay effect support:** every effect now composites transparently over your wallpaper — `snow`, `classic`, and `sleet` carry alpha only where flakes/streaks fall, while `droplet`, `ripple`, and `pouring` refract your daemon's wallpaper through the rain and let it show through the dry surface between drops (the `pouring` fog reads as a light grey veil). Each effect derives its own coverage from its internal rain signal, so the wallpaper daemon keeps drawing everything cozy leaves transparent.
 
 > Advanced: each integration is also runnable directly from a checkout — `git clone` the repo and run `integrations/<name>/install.sh`.
 

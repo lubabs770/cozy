@@ -27,6 +27,7 @@ uniform sampler2D u_wallpaper;
 uniform float u_time;          // seconds since start
 uniform float u_wind;          // horizontal skew of the rain (weather)
 uniform float u_intensity;     // 0..1 rain amount (weather)
+uniform bool  u_overlay;       // true: transparent where there is no glass
 
 #define S(a, b, t) smoothstep(a, b, t)
 
@@ -146,5 +147,14 @@ void main() {
     vec2 base = cover_uv(v_uv + vec2(n.x, -n.y), u_resolution, u_tex_resolution);
     vec3 col = textureLod(u_wallpaper, base, focus).rgb;
 
-    frag_color = vec4(col, 1.0);
+    if (u_overlay) {
+        // Coverage comes straight from the drop field: c.x is the drop/spatter
+        // mask, c.y the running trails, and |n| the lens slope at drop edges.
+        // Everywhere else the surface is dry, so we stay transparent and the
+        // wallpaper daemon below shows through untouched.
+        float cover = clamp(c.x + c.y * 0.6 + length(n) * 6.0, 0.0, 1.0);
+        frag_color = vec4(col * cover, cover);
+    } else {
+        frag_color = vec4(col, 1.0);
+    }
 }

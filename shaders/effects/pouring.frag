@@ -16,6 +16,7 @@ uniform sampler2D u_wallpaper;
 uniform float     u_time;
 uniform float     u_wind;
 uniform float     u_intensity;
+uniform bool      u_overlay;     // true: only the fog veil + rain carry alpha
 
 vec2 cover_uv(vec2 uv, vec2 res, vec2 tex_res) {
     float scale  = max(res.x / tex_res.x, res.y / tex_res.y);
@@ -125,5 +126,23 @@ void main() {
         color = mix(color, shade_glass(refracted_base(nrm, aspect_x), nrm), m);
     }
 
-    frag_color = vec4(color, 1.0);
+    if (u_overlay) {
+        // Composite the storm directly (premultiplied) instead of multiplying the
+        // opaque result by a coverage mask: the fog veil is a real semi-opaque
+        // grey layer, the streaks are additive light, and the droplets sit on top
+        // with their own alpha. Between them the wallpaper daemon shows through.
+        float streak  = s * mix(0.55, 0.88, intensity);
+        vec3  out_rgb = vec3(0.50, 0.55, 0.65) * fog;      // grey veil, premultiplied
+        float out_a   = fog;
+        out_rgb += POUR_TINT * streak;                      // additive rain streaks
+        out_a    = clamp(out_a + streak, 0.0, 1.0);
+        if (m > 0.0) {                                      // glass droplets over the rest
+            vec3 glass = shade_glass(refracted_base(nrm, aspect_x), nrm);
+            out_rgb = glass * m + out_rgb * (1.0 - m);
+            out_a   = m + out_a * (1.0 - m);
+        }
+        frag_color = vec4(out_rgb, out_a);
+    } else {
+        frag_color = vec4(color, 1.0);
+    }
 }
