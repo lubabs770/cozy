@@ -3,7 +3,7 @@
 # cozy installer — builds cozy and wires it into a Caelestia + Hyprland setup so
 # it transparently takes over wallpaper duties.
 #
-#   curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/gamma/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/main/install.sh | bash
 #
 # What it does (all idempotent — safe to re-run, e.g. to update):
 #   1. Clones/updates the repo into  $XDG_DATA_HOME/cozy/src
@@ -15,14 +15,14 @@
 #
 # Nothing here needs root. Override defaults with env vars:
 #   COZY_REPO   git URL           (default: https://github.com/lubabs770/cozy.git)
-#   COZY_REF    branch/tag/commit (default: gamma)
+#   COZY_REF    branch/tag/commit (default: main)
 #   COZY_PREFIX install dir       (default: ~/.local)
 
 set -euo pipefail
 
 # --- config ----------------------------------------------------------------
 COZY_REPO="${COZY_REPO:-https://github.com/lubabs770/cozy.git}"
-COZY_REF="${COZY_REF:-gamma}"
+COZY_REF="${COZY_REF:-main}"
 COZY_PREFIX="${COZY_PREFIX:-$HOME/.local}"
 
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cozy"

@@ -41,7 +41,7 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 If you run the [Caelestia](https://github.com/caelestia-dots) dotfiles, one command builds cozy and wires it in so it takes over wallpaper duties transparently:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/gamma/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/main/install.sh | bash
 ```
 
 The installer is idempotent (re-run it to update) and needs no root. It:
