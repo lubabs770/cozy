@@ -38,11 +38,11 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 
 ## Effects
 
-cozy ships three swappable effects, switched live with `cozy effect <name>`. Here they are cycled over the same wallpaper — `droplet`, `ripple`, then `snow`:
+cozy ships four swappable effects, switched live with `cozy effect <name>`. Here they are cycled over the same wallpaper — `droplet`, `ripple`, `snow`, then `clouds`:
 
-![cozy cycling through its three effects: droplet, ripple, snow](docs/effects.gif)
+![cozy cycling through its four effects: droplet, ripple, snow, clouds](docs/effects.gif)
 
-`droplet` refracts the wallpaper through rain on glass (ported from BigWings' "Heartfelt"); `ripple` treats the wallpaper as a water surface struck by drops; `snow` is multi-layer parallax snowfall with depth-of-field (ported from Andrew Baldwin's "Just Snow"). Each also has a transparent [overlay](#3-alongside-swwwhyprpaper-overlay) variant.
+`droplet` refracts the wallpaper through rain on glass (ported from BigWings' "Heartfelt"); `ripple` treats the wallpaper as a water surface struck by drops; `snow` is multi-layer parallax snowfall with depth-of-field (ported from Andrew Baldwin's "Just Snow"); `clouds` drifts soft fractal clouds across the wallpaper (ported from drift's "2D Clouds"). Each also has a transparent [overlay](#3-alongside-swwwhyprpaper-overlay) variant.
 
 <br>
 
@@ -130,7 +130,7 @@ Drive a running instance with the same binary (point your wallpaper keybind / ro
 ```sh
 cozy --wallpaper ~/walls/now.jpg        # start with a wallpaper
 cozy set ~/walls/next.jpg               # switch wallpaper live, no restart
-cozy effect snow                        # switch effect (droplet | ripple | snow)
+cozy effect snow                        # switch effect (droplet | ripple | snow | clouds)
 cozy weather --wind 0.4 --precip 0.9    # set wind skew + rain intensity
 ```
 
@@ -195,6 +195,7 @@ shaders/
     droplet.frag     rain on glass, refracting the wallpaper (ported from Heartfelt)
     ripple.frag      rain on a water surface, expanding rings
     snow.frag        multi-layer parallax snow with DoF (ported from Just Snow)
+    clouds.frag      soft fractal clouds drifting over the wallpaper (ported from 2D Clouds)
 ```
 
 Each effect is a fragment shader honouring a shared uniform contract (`u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`, `u_overlay`), registered in `gl.rs` and switched live — so adding an effect is one shader file plus one table entry. In overlay mode each effect also derives its own coverage alpha from its internal rain signal, so it composites cleanly over an external wallpaper.
@@ -211,5 +212,6 @@ Some effects are ported from well-known community shaders and keep their origina
 |---|---|---|---|
 | `droplet` | `shaders/effects/droplet.frag` | ["Heartfelt"](https://www.shadertoy.com/view/ltffzl) | Martijn Steinrucken (BigWings) |
 | `snow` | `shaders/effects/snow.frag` | ["Just Snow"](https://www.shadertoy.com/view/ldsGDn) | Andrew Baldwin (baldand) |
+| `clouds` | `shaders/effects/clouds.frag` | ["2D Clouds"](https://www.shadertoy.com/view/4tdSWr) | drift |
 
 All other effects (e.g. `ripple`) are hand-built and MIT.

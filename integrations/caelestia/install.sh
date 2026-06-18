@@ -134,7 +134,7 @@ echo
 printf '%scozy is installed and wired into Caelestia.%s\n' "$GRN$BOLD" "$RST"
 echo
 info "Change wallpaper as usual:   ${BOLD}caelestia wallpaper${RST}   (cozy picks it up live)"
-info "Switch the rain effect:      ${BOLD}cozy effect droplet|ripple|snow${RST}"
+info "Switch the rain effect:      ${BOLD}cozy effect droplet|ripple|snow|clouds${RST}"
 info "Tune wind / intensity:       ${BOLD}cozy weather --wind 0.4 --precip 0.9${RST}"
 echo
 info "The shell's own wallpaper was turned off (background.wallpaperEnabled=false) so"

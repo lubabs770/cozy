@@ -8,7 +8,7 @@
 # control socket is up. Installed as ~/.local/bin/cozy-session and launched via
 # `exec-once` in Hyprland.
 #
-# All effects (droplet, ripple, snow) composite transparently in overlay mode:
+# All effects (droplet, ripple, snow, clouds) composite transparently in overlay mode:
 # cozy stays clear between drops/flakes so the daemon's wallpaper shows through.
 
 set -u
