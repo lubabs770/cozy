@@ -36,6 +36,16 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 
 <br>
 
+## Effects
+
+cozy ships six swappable effects, switched live with `cozy effect <name>`. Here they are cycled over the same wallpaper — `droplet`, `classic`, `pouring`, `ripple`, `snow`, then `sleet`:
+
+![cozy cycling through all six rain effects: droplet, classic, pouring, ripple, snow, sleet](docs/effects.gif)
+
+`droplet` refracts the wallpaper through rain on glass; `classic` runs hand-built slanted streaks with sliding droplets; `pouring` is a heavy downpour with fog; `ripple` treats the wallpaper as a water surface struck by drops; `snow` and `sleet` drift flakes and drive icy pellets. Each also has a transparent [overlay](#3-alongside-swwwhyprpaper-overlay) variant.
+
+<br>
+
 ## Install
 
 One command builds cozy, **detects your setup**, lets you confirm, and runs the matching integration:
