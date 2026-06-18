@@ -1,0 +1,56 @@
+#!/bin/sh
+# cozy-session (vanilla Hyprland) — start the cozy wallpaper engine from the
+# settings in ~/.config/cozy/cozy.conf, then apply the configured effect and
+# weather over the control socket once the daemon is up.
+#
+# Installed to ~/.local/bin/cozy-session by install-hyprland.sh and launched
+# via `exec-once` in Hyprland. cozy owns the wallpaper, so it stands in for a
+# wallpaper daemon (swww / hyprpaper) — do not run one alongside it.
+
+set -u
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/cozy/cozy.conf"
+SOCK="${XDG_RUNTIME_DIR:-/tmp}/cozy/cozy.sock"
+
+# Defaults; cozy.conf overrides these as plain shell variables.
+wallpaper=""
+effect=""
+wind=""
+precip=""
+
+# shellcheck source=/dev/null
+[ -r "$CONFIG" ] && . "$CONFIG"
+
+# Expand a leading ~/ in the configured wallpaper path.
+case "$wallpaper" in
+    "~/"*) wallpaper="$HOME/${wallpaper#"~/"}" ;;
+esac
+
+# Launch the daemon — with the wallpaper if one is set and readable, otherwise
+# cozy falls back to its embedded image.
+if [ -n "$wallpaper" ] && [ -r "$wallpaper" ]; then
+    cozy --wallpaper "$wallpaper" &
+else
+    [ -n "$wallpaper" ] && printf 'cozy-session: wallpaper not readable: %s\n' "$wallpaper" >&2
+    cozy &
+fi
+cozy_pid=$!
+
+# Wait (up to ~10s) for the control socket, then apply effect + weather. These
+# are socket-only commands, so they can only run once the daemon is listening.
+i=0
+while [ ! -S "$SOCK" ] && [ "$i" -lt 100 ]; do
+    sleep 0.1
+    i=$((i + 1))
+done
+
+if [ -S "$SOCK" ]; then
+    [ -n "$effect" ] && cozy effect "$effect" >/dev/null 2>&1
+    if [ -n "$wind" ] || [ -n "$precip" ]; then
+        cozy weather --wind "${wind:-0.0}" --precip "${precip:-0.6}" >/dev/null 2>&1
+    fi
+fi
+
+# Hand our exit status to the daemon's, so Hyprland's exec-once tracking and
+# any supervisor see cozy's real lifetime.
+wait "$cozy_pid"

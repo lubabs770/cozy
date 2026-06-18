@@ -1,0 +1,52 @@
+#!/bin/sh
+# cozy-wall <path> — switch the cozy wallpaper live AND remember it.
+#
+# cozy's daemon takes its wallpaper as a startup argument and does not persist
+# it, so a plain `cozy set` is forgotten on the next login. cozy-wall does both
+# halves: it applies the change to the running daemon immediately (no restart —
+# the rain keeps animating) and records the path in ~/.config/cozy/cozy.conf so
+# cozy-session restores it next time.
+#
+#   cozy-wall ~/Pictures/sunset.jpg
+
+set -eu
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/cozy/cozy.conf"
+
+if [ "$#" -ne 1 ]; then
+    echo "usage: cozy-wall <wallpaper-path>" >&2
+    exit 2
+fi
+
+wall="$1"
+# Expand a leading ~/ then make the path absolute.
+case "$wall" in
+    "~/"*) wall="$HOME/${wall#"~/"}" ;;
+esac
+case "$wall" in
+    /*) ;;
+    *)  wall="$(pwd)/$wall" ;;
+esac
+
+[ -r "$wall" ] || { printf 'cozy-wall: not readable: %s\n' "$wall" >&2; exit 1; }
+
+# 1. Live-apply to the running daemon. If it is not running yet (e.g. set from a
+#    script before login), keep going — the config write below still persists it.
+if ! cozy set "$wall"; then
+    echo "cozy-wall: daemon not reachable — saved to config for next start" >&2
+fi
+
+# 2. Persist: rewrite (or append) the wallpaper= line in cozy.conf. We match the
+#    path with awk to sidestep sed delimiter/metacharacter issues in file paths.
+mkdir -p "$(dirname "$CONFIG")"
+[ -f "$CONFIG" ] || : > "$CONFIG"
+tmp="$(mktemp)"
+WALL="$wall" awk '
+    /^[[:space:]]*wallpaper=/ { print "wallpaper=\"" ENVIRON["WALL"] "\""; found=1; next }
+    { print }
+    END { if (!found) print "wallpaper=\"" ENVIRON["WALL"] "\"" }
+' "$CONFIG" > "$tmp"
+cat "$tmp" > "$CONFIG"
+rm -f "$tmp"
+
+printf 'cozy-wall: wallpaper set to %s\n' "$wall"

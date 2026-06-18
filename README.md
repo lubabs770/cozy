@@ -62,6 +62,37 @@ To undo everything, restore the `.cozy-bak` backups next to `cli.json` / `shell.
 
 <br>
 
+## Install (plain Hyprland — no Caelestia)
+
+If you run vanilla Hyprland (or any setup without Caelestia), use the Hyprland installer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/main/install-hyprland.sh | bash
+```
+
+It builds and installs `cozy` plus two helpers — `cozy-session` and `cozy-wall` — to `~/.local/bin`, then wires cozy into Hyprland. It is idempotent (re-run to update) and needs no root. It:
+
+- writes a starter config at `~/.config/cozy/cozy.conf` (only if absent) — wallpaper, effect, and weather as plain `key=value` lines,
+
+- writes `~/.config/cozy/hyprland.conf` — an `exec-once` that launches cozy plus a couple of keybinds. **It asks** whether to use cozy's preshipped keybinds or leave them commented so you set your own; either way you can edit that file anytime,
+
+- adds exactly **one** `source = ~/.config/cozy/hyprland.conf` line to your real `hyprland.conf` (backed up to `*.cozy-bak` first, and skipped if already present), and
+
+- starts cozy on your next Hyprland reload/login via that `exec-once`.
+
+cozy owns the wallpaper, so don't run `hyprpaper`/`swww` alongside it. Set or change the wallpaper with:
+
+```sh
+cozy-wall ~/Pictures/sunset.jpg     # swaps live (no restart) AND remembers it for next login
+cozy effect snow                    # switch effect live
+```
+
+`cozy-wall` is the one command you need for wallpapers: it applies the change to the running daemon immediately *and* records it in `cozy.conf` so `cozy-session` restores it next time. (cozy's daemon takes its wallpaper as a startup argument and doesn't persist it on its own.)
+
+To undo everything, delete the `source` line from `hyprland.conf` (or restore the `.cozy-bak`) and remove `~/.config/cozy` and the binaries in `~/.local/bin`.
+
+<br>
+
 ## Requirements
 
 - A Wayland compositor that implements `wlr-layer-shell` (Hyprland, sway, river, …).
