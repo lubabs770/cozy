@@ -1,11 +1,22 @@
 #version 300 es
 precision highp float;
 
-// cozy effect: "snow" — softly drifting snowflakes.
-// Hand-built. MIT license (same as cozy).
+// cozy effect: "snow" — multi-layer parallax snow with depth-of-field.
 //
-// u_wind:      lateral drift per unit of fall (weather)
-// u_intensity: flake density [0..1] (weather)
+// Ported from "Just Snow" by Andrew Baldwin (twitter @baldand, www.thndl.com),
+// 2013: https://www.shadertoy.com/view/ldsGDn
+//
+// The original is licensed Creative Commons Attribution-NonCommercial-ShareAlike
+// 3.0 (CC BY-NC-SA 3.0). This ported file inherits that license and is therefore
+// CC BY-NC-SA 3.0 — NOT the MIT license that covers the rest of cozy.
+// Attribution: Andrew Baldwin. See README for details.
+//
+// Adapted to cozy's uniform contract and conventions:
+//   * iChannel0 -> u_wallpaper (sampled cover-fit), iTime -> u_time
+//   * u_intensity scales how much snow accumulates (weather)
+//   * u_wind slants the falling flakes horizontally (weather)
+//   * u_overlay outputs premultiplied alpha so the flakes can composite over an
+//     external wallpaper daemon (transparent between flakes)
 
 in vec2 v_uv;
 out vec4 frag_color;
@@ -16,9 +27,12 @@ uniform sampler2D u_wallpaper;
 uniform float     u_time;
 uniform float     u_wind;
 uniform float     u_intensity;
-// When true, output premultiplied alpha (transparent except where snow falls)
-// so cozy can composite over an external wallpaper. Default false = opaque.
 uniform bool      u_overlay;
+
+#define LAYERS 50
+#define DEPTH  0.1
+#define WIDTH  0.8
+#define SPEED  0.6
 
 vec2 cover_uv(vec2 uv, vec2 res, vec2 tex_res) {
     float scale  = max(res.x / tex_res.x, res.y / tex_res.y);
@@ -27,59 +41,48 @@ vec2 cover_uv(vec2 uv, vec2 res, vec2 tex_res) {
     return (uv * res + offset) / scaled;
 }
 
-float hash11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
-
-// Soft snowflake coverage for one depth layer.
-//   cells: grid cells spanning screen width — larger = smaller / denser flakes
-//   speed: fall rate in cells per second
-//   r:     soft radius in cell-local units [0..1]
-float snowLayer(vec2 uv, float t, float cells, float speed, float r) {
-    float aspect = u_resolution.x / u_resolution.y;
-    vec2  p      = uv * vec2(cells, cells / aspect); // square cells in screen space
-    vec2  g      = fract(p);
-    float acc    = 0.0;
-
-    for (int xi = -1; xi <= 1; xi++) {
-        for (int yi = -1; yi <= 1; yi++) {
-            vec2  off  = vec2(float(xi), float(yi));
-            vec2  cell = floor(p) + off;
-            vec2  loc  = g - off; // fragment position relative to this cell's origin
-
-            float s0     = hash11(cell.x * 127.1 + cell.y * 311.7);
-            float s1     = hash11(s0 * 7919.0);
-            float present = step(0.3, hash11(s1 * 3571.0)); // ~70 % spawn rate
-
-            // Sawtooth fall phase, phase-shifted per flake so they're not in sync.
-            float phase = fract(s0 + t * speed * (0.7 + s1 * 0.6));
-
-            // Lateral position: cell jitter + wind drift + gentle wobble.
-            float cx = 0.5 + (s1 - 0.5) * 0.55
-                       + u_wind * phase * 0.35
-                       + 0.07 * sin(t * 1.1 + s0 * 6.2831);
-            float cy = phase;
-
-            float d = length(loc - vec2(cx, cy));
-            acc = max(acc, smoothstep(r, r * 0.3, d) * present);
-        }
-    }
-    return acc;
-}
-
 void main() {
-    vec3  base    = texture(u_wallpaper, cover_uv(v_uv, u_resolution, u_tex_resolution)).rgb;
-    float density = mix(0.4, 1.0, clamp(u_intensity, 0.0, 1.0));
+    float intensity = clamp(u_intensity, 0.0, 1.0);
+    vec3  base      = texture(u_wallpaper, cover_uv(v_uv, u_resolution, u_tex_resolution)).rgb;
 
-    // Three depth layers: near (large / slow), mid, far (tiny / quick).
-    float near = snowLayer(v_uv, u_time, 12.0, 0.08, 0.22) * density;
-    float mid  = snowLayer(v_uv, u_time, 22.0, 0.15, 0.16) * density;
-    float far  = snowLayer(v_uv, u_time, 40.0, 0.24, 0.12) * density;
+    // Baldwin's hashing matrix and a slowly oscillating focal depth for the DoF.
+    const mat3 p = mat3(13.323122, 23.5112, 21.71123,
+                        21.1212,   28.7312, 11.9312,
+                        21.8112,   14.7212, 61.3934);
+    float dof = 5.0 * sin(u_time * 0.1);
 
-    float snow  = clamp(near + mid * 0.65 + far * 0.4, 0.0, 1.0);
-    vec3  flake = vec3(0.92, 0.96, 1.0) * snow * 0.88;
+    // Aspect-correct so flakes stay round on a wide output.
+    float aspect = u_resolution.x / u_resolution.y;
+    vec2  uv     = vec2(v_uv.x * aspect, v_uv.y);
+
+    float acc = 0.0;
+    for (int i = 0; i < LAYERS; i++) {
+        float fi = float(i);
+
+        // Each layer sits at a different parallax depth and drifts sideways; the
+        // wind adds a shared slant on top of the per-layer random direction.
+        vec2 q = uv * (1.0 + fi * DEPTH);
+        q += vec2(q.y * (WIDTH * mod(fi * 7.238917, 1.0) - WIDTH * 0.5 + u_wind * 1.1),
+                  SPEED * u_time / (1.0 + fi * DEPTH * 0.03));
+
+        vec3 n  = vec3(floor(q), 31.189 + fi);
+        vec3 m  = floor(n) * 0.00001 + fract(n);
+        vec3 mp = (31415.9 + m) / fract(p * m);
+        vec3 r  = fract(mp);
+
+        vec2 s = abs(mod(q, 1.0) - 0.5 + 0.9 * r.xy - 0.45);
+        s += 0.01 * abs(2.0 * fract(10.0 * q.yx) - 1.0);
+        float d    = 0.6 * max(s.x - s.y, s.x + s.y) + max(s.x, s.y) - 0.01;
+        float edge = 0.005 + 0.05 * min(0.5 * abs(fi - 5.0 - dof), 1.0);
+        acc += smoothstep(edge, -edge, d) * (r.x / (1.0 + 0.02 * fi * DEPTH));
+    }
+
+    // Weather scales the overall accumulation; tint the flakes a cool white.
+    float snow  = clamp(acc * mix(0.45, 1.15, intensity), 0.0, 1.0);
+    vec3  flake = vec3(0.92, 0.96, 1.0) * snow;
 
     if (u_overlay) {
-        // Show only the flakes; transparent elsewhere so the external wallpaper
-        // shows through. Premultiplied alpha (rgb already scaled by coverage).
+        // Premultiplied alpha: rgb is already the flake colour scaled by coverage.
         frag_color = vec4(flake, snow);
     } else {
         frag_color = vec4(base + flake, 1.0);

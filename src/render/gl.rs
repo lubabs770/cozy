@@ -20,9 +20,9 @@ const VERT_SRC: &str = include_str!("../../shaders/rain.vert");
 
 /// All built-in effects, by name. The first entry is the default.
 ///
-/// Note: `droplet` is ported from "Heartfelt" by BigWings and is licensed
-/// CC BY-NC-SA 3.0 (see the shader header), unlike the rest of cozy (MIT).
-/// All other effects are hand-built and MIT.
+/// Note: `droplet` ("Heartfelt" by BigWings) and `snow` ("Just Snow" by Andrew
+/// Baldwin) are ports licensed CC BY-NC-SA 3.0 (see each shader header), unlike
+/// the rest of cozy (MIT). The remaining effects are hand-built and MIT.
 /// All built-in effects as `(name, description, fragment source)`. The
 /// description is a one-line blurb for `cozy effect` / `--help` listings.
 const EFFECTS: &[(&str, &str, &str)] = &[
@@ -48,7 +48,7 @@ const EFFECTS: &[(&str, &str, &str)] = &[
     ),
     (
         "snow",
-        "softly drifting snowflakes",
+        "multi-layer parallax snow with depth-of-field (Just Snow)",
         include_str!("../../shaders/effects/snow.frag"),
     ),
     (

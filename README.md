@@ -196,7 +196,7 @@ shaders/
     classic.frag     slanted streaks with running glass droplets
     pouring.frag     heavy downpour with fog and large drops
     ripple.frag      rain on a water surface, expanding rings
-    snow.frag        softly drifting snowflakes
+    snow.frag        multi-layer parallax snow with DoF (ported from Just Snow)
     sleet.frag       fast icy pellets with diagonal streaks
 ```
 
@@ -208,4 +208,11 @@ Each effect is a fragment shader honouring a shared uniform contract (`u_resolut
 
 cozy's own code is **MIT**.
 
-The `droplet` effect (`shaders/effects/droplet.frag`) is ported from **"Heartfelt"** by **Martijn Steinrucken (BigWings)** — <https://www.shadertoy.com/view/ltffzl> — and is licensed **CC BY-NC-SA 3.0**, not MIT. That license (attribution, non-commercial, share-alike) governs that file and any derivative of it.
+Some effects are ported from well-known community shaders and keep their original **CC BY-NC-SA 3.0** license (attribution, non-commercial, share-alike) — **not** MIT. That license governs each listed file and any derivative of it:
+
+| Effect | File | Original | Author |
+|---|---|---|---|
+| `droplet` | `shaders/effects/droplet.frag` | ["Heartfelt"](https://www.shadertoy.com/view/ltffzl) | Martijn Steinrucken (BigWings) |
+| `snow` | `shaders/effects/snow.frag` | ["Just Snow"](https://www.shadertoy.com/view/ldsGDn) | Andrew Baldwin (baldand) |
+
+All other effects (e.g. `ripple`) are hand-built and MIT.
