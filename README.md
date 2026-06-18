@@ -120,7 +120,7 @@ Drive a running instance with the same binary (point your wallpaper keybind / ro
 ```sh
 cozy --wallpaper ~/walls/now.jpg        # start with a wallpaper
 cozy set ~/walls/next.jpg               # switch wallpaper live, no restart
-cozy effect classic                     # switch rain effect (droplet | classic)
+cozy effect classic                     # switch effect (droplet | classic | pouring | ripple | snow | sleet)
 cozy weather --wind 0.4 --precip 0.9    # set wind skew + rain intensity
 ```
 
@@ -167,7 +167,7 @@ Each milestone is confirmed by reading the captured PNGs: a solid clear color (E
 
 ## Architecture
 
-One layer surface per output, each owning its own EGL/GLES context and renderer. cozy draws the wallpaper as the **opaque** base and composites the rain inside the shader — so there is no compositor-level transparency to fight.
+One layer surface per output, each owning its own EGL/GLES context and renderer. In the default **opaque** mode cozy draws the wallpaper as the base and composites the rain inside the shader — so there is no compositor-level transparency to fight. In `--overlay` mode it instead outputs premultiplied alpha and stays transparent between drops, letting an external wallpaper daemon show through (see the swww-overlay integration above).
 
 ```
 src/
@@ -182,11 +182,15 @@ src/
 shaders/
   rain.vert          fullscreen triangle
   effects/
-    droplet.frag     rain on glass with refraction (ported from Heartfelt)
-    classic.frag     the original hand-built streaks + droplets
+    droplet.frag     rain on glass, refracting the wallpaper (ported from Heartfelt)
+    classic.frag     slanted streaks with running glass droplets
+    pouring.frag     heavy downpour with fog and large drops
+    ripple.frag      rain on a water surface, expanding rings
+    snow.frag        softly drifting snowflakes
+    sleet.frag       fast icy pellets with diagonal streaks
 ```
 
-Each effect is a fragment shader honouring a shared uniform contract (`u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`), registered in `gl.rs` and switched live — so adding an effect is one shader file plus one table entry.
+Each effect is a fragment shader honouring a shared uniform contract (`u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`, `u_overlay`), registered in `gl.rs` and switched live — so adding an effect is one shader file plus one table entry. In overlay mode each effect also derives its own coverage alpha from its internal rain signal, so it composites cleanly over an external wallpaper.
 
 <br>
 

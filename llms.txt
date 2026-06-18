@@ -5,11 +5,11 @@
 > droplets that refract the wallpaper behind them — using OpenGL ES via EGL.
 > Clicks fall through to the desktop. Linux/Wayland only; written in Rust.
 
-cozy normally *owns* the wallpaper (it must, to refract those pixels), so it
-runs instead of a wallpaper daemon. Rain is a swappable "effect" with a shared
+In the default opaque mode cozy *owns* the wallpaper (it must, to refract those
+pixels), so it runs instead of a wallpaper daemon. An `--overlay` mode renders
+transparent rain (premultiplied alpha, per-effect coverage) *alongside* an
+existing swww/hyprpaper daemon. Rain is a swappable "effect" with a shared
 shader uniform contract; effects are switched live over a Unix control socket.
-A planned `--overlay` mode (see specs) will let cozy run *alongside* swww or
-hyprpaper.
 
 ## Engine (Rust)
 
@@ -24,7 +24,7 @@ hyprpaper.
 ## Shaders
 
 - [shaders/rain.vert](shaders/rain.vert): fullscreen triangle
-- [shaders/effects/](shaders/effects/): one fragment shader per effect — `droplet` (refraction, ported from Heartfelt; CC BY-NC-SA), `classic`, `pouring`, `ripple`, `sleet`, `snow`. Each honors `u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`.
+- [shaders/effects/](shaders/effects/): one fragment shader per effect — `droplet` (refraction, ported from Heartfelt; CC BY-NC-SA), `classic`, `pouring`, `ripple`, `sleet`, `snow`. Each honors `u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`, `u_overlay` (and defines its own coverage alpha for overlay mode).
 
 ## Integrations (install glue — one binary, three profiles)
 
@@ -32,7 +32,7 @@ hyprpaper.
 - [integrations/common.sh](integrations/common.sh): shared installer machinery (preflight, fetch, build, install binary)
 - [integrations/caelestia/](integrations/caelestia/): cozy owns the wallpaper, wired into Caelestia (systemd unit, postHook, shell.json)
 - [integrations/standalone/](integrations/standalone/): cozy owns the wallpaper on plain Hyprland (exec-once, cozy.conf, cozy-wall)
-- [integrations/swww-overlay/](integrations/swww-overlay/): cozy alongside swww/hyprpaper via `--overlay` (Phase 2 — stub)
+- [integrations/swww-overlay/](integrations/swww-overlay/): cozy alongside swww/hyprpaper via `--overlay` (transparent rain overlay)
 
 ## Docs
 

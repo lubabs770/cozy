@@ -35,9 +35,11 @@ docs/superpowers/specs/   design docs
 ```
 
 One binary serves all integrations. #1 caelestia and #2 standalone are the same
-render mode (opaque, cozy owns the wallpaper); #3 swww-overlay (Phase 2) adds a
-`--overlay` mode. Adding an effect = one `shaders/effects/<name>.frag` + one row
-in the `EFFECTS` table in `src/render/gl.rs`.
+render mode (opaque, cozy owns the wallpaper); #3 swww-overlay runs the
+`--overlay` mode (transparent premultiplied-alpha rain over an external
+daemon's wallpaper). Adding an effect = one `shaders/effects/<name>.frag` + one
+row in the `EFFECTS` table in `src/render/gl.rs`; in overlay mode it must also
+output a coverage alpha (`u_overlay`).
 
 ## Conventions
 
