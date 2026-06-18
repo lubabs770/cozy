@@ -36,60 +36,50 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 
 <br>
 
-## Install (Caelestia + Hyprland)
+## Install
 
-If you run the [Caelestia](https://github.com/caelestia-dots) dotfiles, one command builds cozy and wires it in so it takes over wallpaper duties transparently:
+One command builds cozy, **detects your setup**, lets you confirm, and runs the matching integration:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/main/install.sh | bash
 ```
 
-The installer is idempotent (re-run it to update) and needs no root. It:
+It is idempotent (re-run to update) and needs no root. To skip the prompt (e.g. scripted installs), set `COZY_INTEGRATION=caelestia|standalone|swww`. cozy supports three integrations:
 
-- builds the release binary and installs `cozy` + `cozy-session` to `~/.local/bin`,
+### 1. Caelestia
 
-- installs and enables a `systemd --user` service so cozy starts with your graphical session,
+For the [Caelestia](https://github.com/caelestia-dots) dotfiles — cozy takes over wallpaper duties transparently. The installer:
 
-- appends `cozy set "$WALLPAPER_PATH"` to your Caelestia wallpaper `postHook` (`~/.config/caelestia/cli.json`, backed up first), so `caelestia wallpaper` changes flow into cozy live,
-
-- turns off the Caelestia shell's own wallpaper rendering (`background.wallpaperEnabled = false` in `shell.json`, also backed up) so cozy is the sole wallpaper renderer — the desktop clock and visualiser are left untouched, and
-
+- installs `cozy` + `cozy-session` to `~/.local/bin` and enables a `systemd --user` service,
+- appends `cozy set "$WALLPAPER_PATH"` to your Caelestia wallpaper `postHook` (`cli.json`, backed up), so `caelestia wallpaper` flows into cozy live,
+- turns off the Caelestia shell's own wallpaper (`background.wallpaperEnabled = false` in `shell.json`, backed up) so cozy is the sole renderer — clock and visualiser untouched, and
 - seeds cozy with your current Caelestia wallpaper.
 
-After that, change wallpaper the way you always have — `caelestia wallpaper` — and cozy follows along. Switch the rain with `cozy effect <name>`.
+Change wallpaper the way you always have (`caelestia wallpaper`); switch rain with `cozy effect <name>`. Undo: restore the `.cozy-bak` backups next to `cli.json` / `shell.json` and `systemctl --user disable --now cozy.service`.
 
-To undo everything, restore the `.cozy-bak` backups next to `cli.json` / `shell.json` and `systemctl --user disable --now cozy.service`.
+### 2. Standalone (plain Hyprland)
 
-<br>
+For vanilla Hyprland with no dotfiles — cozy owns the wallpaper. The installer:
 
-## Install (plain Hyprland — no Caelestia)
+- installs `cozy` + `cozy-session` + `cozy-wall` to `~/.local/bin`,
+- writes a starter `~/.config/cozy/cozy.conf` (wallpaper, effect, weather) only if absent,
+- writes `~/.config/cozy/hyprland.conf` (an `exec-once` + keybinds), **asking** whether to use preshipped keybinds or leave them commented for you to set, and
+- adds exactly **one** `source = …` line to your real `hyprland.conf` (backed up to `*.cozy-bak`, skipped if present).
 
-If you run vanilla Hyprland (or any setup without Caelestia), use the Hyprland installer:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/lubabs770/cozy/main/install-hyprland.sh | bash
-```
-
-It builds and installs `cozy` plus two helpers — `cozy-session` and `cozy-wall` — to `~/.local/bin`, then wires cozy into Hyprland. It is idempotent (re-run to update) and needs no root. It:
-
-- writes a starter config at `~/.config/cozy/cozy.conf` (only if absent) — wallpaper, effect, and weather as plain `key=value` lines,
-
-- writes `~/.config/cozy/hyprland.conf` — an `exec-once` that launches cozy plus a couple of keybinds. **It asks** whether to use cozy's preshipped keybinds or leave them commented so you set your own; either way you can edit that file anytime,
-
-- adds exactly **one** `source = ~/.config/cozy/hyprland.conf` line to your real `hyprland.conf` (backed up to `*.cozy-bak` first, and skipped if already present), and
-
-- starts cozy on your next Hyprland reload/login via that `exec-once`.
-
-cozy owns the wallpaper, so don't run `hyprpaper`/`swww` alongside it. Set or change the wallpaper with:
+cozy owns the wallpaper, so don't run `hyprpaper`/`swww` alongside it. Change wallpaper with:
 
 ```sh
 cozy-wall ~/Pictures/sunset.jpg     # swaps live (no restart) AND remembers it for next login
 cozy effect snow                    # switch effect live
 ```
 
-`cozy-wall` is the one command you need for wallpapers: it applies the change to the running daemon immediately *and* records it in `cozy.conf` so `cozy-session` restores it next time. (cozy's daemon takes its wallpaper as a startup argument and doesn't persist it on its own.)
+`cozy-wall` is the one command you need: it applies the change to the running daemon *and* records it in `cozy.conf` so `cozy-session` restores it next login. Undo: delete the `source` line from `hyprland.conf` (or restore `.cozy-bak`) and remove `~/.config/cozy` + the binaries.
 
-To undo everything, delete the `source` line from `hyprland.conf` (or restore the `.cozy-bak`) and remove `~/.config/cozy` and the binaries in `~/.local/bin`.
+### 3. Alongside swww/hyprpaper — *coming soon*
+
+Run cozy as a transparent rain **overlay** above an existing `swww`/`hyprpaper` wallpaper (cozy's `--overlay` mode, with droplets refracting a synced copy of the image). Not available yet — see [the design doc](docs/superpowers/specs/2026-06-18-cozy-multi-integration-monorepo-design.md). Until then, use the standalone integration.
+
+> Advanced: each integration is also runnable directly from a checkout — `git clone` the repo and run `integrations/<name>/install.sh`.
 
 <br>
 

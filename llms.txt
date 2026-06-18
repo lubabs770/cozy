@@ -1,0 +1,46 @@
+# cozy
+
+> Animated rain over your Wayland wallpaper. cozy is a `wlr-layer-shell` client
+> that renders your wallpaper and composites animated rain on top of it — glass
+> droplets that refract the wallpaper behind them — using OpenGL ES via EGL.
+> Clicks fall through to the desktop. Linux/Wayland only; written in Rust.
+
+cozy normally *owns* the wallpaper (it must, to refract those pixels), so it
+runs instead of a wallpaper daemon. Rain is a swappable "effect" with a shared
+shader uniform contract; effects are switched live over a Unix control socket.
+A planned `--overlay` mode (see specs) will let cozy run *alongside* swww or
+hyprpaper.
+
+## Engine (Rust)
+
+- [src/main.rs](src/main.rs): bootstrap + CLI — run the daemon, or send a control command (set / effect / weather)
+- [src/control.rs](src/control.rs): Unix-socket control protocol
+- [src/app.rs](src/app.rs): app state + all Wayland event handlers; layer-surface creation, opaque region
+- [src/surface.rs](src/surface.rs): one Background layer surface per output, plus its drawing
+- [src/render/egl.rs](src/render/egl.rs): EGL display/context setup on a Wayland surface
+- [src/render/gl.rs](src/render/gl.rs): effect registry (`EFFECTS`), fullscreen-triangle draw, uniforms
+- [src/render/texture.rs](src/render/texture.rs): decode an image into a mipmapped RGBA8 GL texture
+
+## Shaders
+
+- [shaders/rain.vert](shaders/rain.vert): fullscreen triangle
+- [shaders/effects/](shaders/effects/): one fragment shader per effect — `droplet` (refraction, ported from Heartfelt; CC BY-NC-SA), `classic`, `pouring`, `ripple`, `sleet`, `snow`. Each honors `u_resolution`, `u_tex_resolution`, `u_wallpaper`, `u_time`, `u_wind`, `u_intensity`.
+
+## Integrations (install glue — one binary, three profiles)
+
+- [install.sh](install.sh): top-level dispatcher — detect setup, confirm, delegate (`COZY_INTEGRATION` to skip the prompt)
+- [integrations/common.sh](integrations/common.sh): shared installer machinery (preflight, fetch, build, install binary)
+- [integrations/caelestia/](integrations/caelestia/): cozy owns the wallpaper, wired into Caelestia (systemd unit, postHook, shell.json)
+- [integrations/standalone/](integrations/standalone/): cozy owns the wallpaper on plain Hyprland (exec-once, cozy.conf, cozy-wall)
+- [integrations/swww-overlay/](integrations/swww-overlay/): cozy alongside swww/hyprpaper via `--overlay` (Phase 2 — stub)
+
+## Docs
+
+- [README.md](README.md): install + usage + architecture
+- [AGENTS.md](AGENTS.md): build / lint / verify and conventions for coding agents
+- [docs/superpowers/specs/](docs/superpowers/specs/): design specs (e.g. the multi-integration monorepo + overlay-mode design)
+
+## Build & verify
+
+- Build: `cargo build --release` (Linux + Wayland/EGL dev headers)
+- The dev machine is macOS but cozy is Linux-only, so it is verified in a Linux container: `make verify` (headless sway + Mesa software renderer + grim screenshots into `./out/`), `make lint` (rustfmt + clippy).
