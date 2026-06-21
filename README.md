@@ -38,9 +38,9 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 
 ## Effects
 
-cozy ships a growing set of swappable effects, switched live with `cozy effect <name>`. Here are the original four cycled over the same wallpaper — `droplet`, `ripple`, `snow`, then `clouds`:
+cozy ships ten swappable effects, switched live with `cozy effect <name>`. Here they are cycled over the same wallpaper — `droplet`, `ripple`, `snow`, `clouds`, `cirrus`, `cumulus`, `cumulonimbus`, `stratus`, `sunrays`, then `lightning`:
 
-![cozy cycling through its four effects: droplet, ripple, snow, clouds](docs/effects.gif)
+![cozy cycling through its ten effects, from rain and snow through the cloud types to sun rays and lightning](docs/effects.gif)
 
 **Rain & snow.** `droplet` refracts the wallpaper through rain on glass (ported from BigWings' "Heartfelt"); `ripple` treats the wallpaper as a water surface struck by drops; `snow` is multi-layer parallax snowfall with depth-of-field (ported from Andrew Baldwin's "Just Snow").
 
