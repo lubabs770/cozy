@@ -33,7 +33,7 @@ uniform bool      u_overlay;
 
 // drift's constants (sky-colour constants dropped — the wallpaper is the sky).
 const float cloudscale = 1.1;
-const float speed      = 0.03;
+const float speed      = 0.01;
 const float clouddark  = 0.5;
 const float cloudlight = 0.3;
 const float cloudalpha = 8.0;
