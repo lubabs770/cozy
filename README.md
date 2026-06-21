@@ -38,11 +38,17 @@ The rain is a swappable **effect**; switch effects (and, later, let local weathe
 
 ## Effects
 
-cozy ships four swappable effects, switched live with `cozy effect <name>`. Here they are cycled over the same wallpaper — `droplet`, `ripple`, `snow`, then `clouds`:
+cozy ships a growing set of swappable effects, switched live with `cozy effect <name>`. Here are the original four cycled over the same wallpaper — `droplet`, `ripple`, `snow`, then `clouds`:
 
 ![cozy cycling through its four effects: droplet, ripple, snow, clouds](docs/effects.gif)
 
-`droplet` refracts the wallpaper through rain on glass (ported from BigWings' "Heartfelt"); `ripple` treats the wallpaper as a water surface struck by drops; `snow` is multi-layer parallax snowfall with depth-of-field (ported from Andrew Baldwin's "Just Snow"); `clouds` drifts soft fractal clouds across the wallpaper (ported from drift's "2D Clouds"). Each also has a transparent [overlay](#3-alongside-swwwhyprpaper-overlay) variant.
+**Rain & snow.** `droplet` refracts the wallpaper through rain on glass (ported from BigWings' "Heartfelt"); `ripple` treats the wallpaper as a water surface struck by drops; `snow` is multi-layer parallax snowfall with depth-of-field (ported from Andrew Baldwin's "Just Snow").
+
+**Clouds.** `clouds` drifts soft fractal clouds across the wallpaper (ported from drift's "2D Clouds"), plus four hand-built cloud types: `cirrus` (high, thin, wispy streaks), `cumulus` (fluffy fair-weather puffs with sunlit tops and shaded undersides), `cumulonimbus` (heavy, dark, towering storm clouds), and `stratus` (a flat, featureless grey overcast layer).
+
+**Light & storm.** `sunrays` casts volumetric god rays fanning out from the sun, broken into shafts by a drifting occluder; `lightning` broods as a dark storm sky that periodically flares with a flash and a forking bolt.
+
+Every effect honours the shared weather inputs (`u_wind` drives drift, `u_intensity` drives cover) and has a transparent [overlay](#3-alongside-swwwhyprpaper-overlay) variant. The hand-built effects are MIT-licensed like the rest of cozy; the four ports noted above are CC BY-NC-SA 3.0 (see each shader header).
 
 <br>
 

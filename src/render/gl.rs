@@ -47,6 +47,36 @@ const EFFECTS: &[(&str, &str, &str)] = &[
         "soft fractal clouds drifting across the wallpaper (2D Clouds)",
         include_str!("../../shaders/effects/clouds.frag"),
     ),
+    (
+        "cirrus",
+        "high, thin, wispy cirrus streaks drifting fast",
+        include_str!("../../shaders/effects/cirrus.frag"),
+    ),
+    (
+        "cumulus",
+        "fluffy fair-weather puffs with sunlit tops",
+        include_str!("../../shaders/effects/cumulus.frag"),
+    ),
+    (
+        "cumulonimbus",
+        "heavy, dark towering storm clouds",
+        include_str!("../../shaders/effects/cumulonimbus.frag"),
+    ),
+    (
+        "stratus",
+        "flat, featureless grey overcast layer",
+        include_str!("../../shaders/effects/stratus.frag"),
+    ),
+    (
+        "sunrays",
+        "volumetric god rays fanning from the sun",
+        include_str!("../../shaders/effects/sunrays.frag"),
+    ),
+    (
+        "lightning",
+        "brooding storm sky with flashes and bolts",
+        include_str!("../../shaders/effects/lightning.frag"),
+    ),
 ];
 
 /// The effect cozy starts with when none is requested.
