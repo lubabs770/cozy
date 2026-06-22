@@ -1,0 +1,19 @@
+# cozy weather config — copy to ~/.config/cozy/config.toml and fill in.
+#
+# Used by `cozy --weather` (daemon poller) and `cozy weather-sync` (one-shot).
+# The API key is a secret, so it lives here rather than on the command line.
+
+# Your OpenWeatherMap API key (https://openweathermap.org/api). Required.
+api_key = "YOUR_OPENWEATHERMAP_API_KEY"
+
+# Where to fetch weather for. Set EITHER a city query …
+location = "London,GB"
+# … OR explicit coordinates (comment out `location` if you use these):
+# lat = 51.51
+# lon = -0.13
+
+# Unit system: "metric" (wind in m/s — recommended) or "imperial".
+units = "metric"
+
+# Daemon poll interval in seconds (how often `--weather` re-checks). Default 600.
+interval = 600

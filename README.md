@@ -135,9 +135,11 @@ Drive a running instance with the same binary (point your wallpaper keybind / ro
 
 ```sh
 cozy --wallpaper ~/walls/now.jpg        # start with a wallpaper
+cozy --weather                          # also drive effects from local weather
 cozy set ~/walls/next.jpg               # switch wallpaper live, no restart
 cozy effect snow                        # switch effect (droplet | ripple | snow | clouds)
-cozy weather --wind 0.4 --precip 0.9    # set wind skew + rain intensity
+cozy weather --wind 0.4 --precip 0.9    # set wind skew + rain intensity by hand
+cozy weather-sync                       # fetch local weather once, apply to daemon
 ```
 
 The socket lives at `$XDG_RUNTIME_DIR/cozy/cozy.sock`.
@@ -148,9 +150,46 @@ Stop it with `Ctrl-C` (or `kill`); the layer surfaces and GL contexts are torn d
 
 <br>
 
+## Weather
+
+cozy can drive itself from your local weather via [OpenWeatherMap](https://openweathermap.org/api): the current conditions pick the effect and set the wind and intensity, so a rainy, blustery day actually looks like one on your desktop.
+
+Copy [`config.toml.example`](config.toml.example) to `~/.config/cozy/config.toml` and add your (free) OWM API key and location:
+
+```toml
+api_key  = "…"          # OpenWeatherMap key (kept out of the command line)
+location = "London,GB"  # or set lat/lon instead
+units    = "metric"     # metric keeps wind in m/s
+interval = 600          # daemon poll seconds
+```
+
+Then either let the daemon poll in the background, or sync once from a timer:
+
+```sh
+cozy --weather       # daemon polls every `interval` seconds and applies live
+cozy weather-sync    # fetch once now and push to a running daemon (cron/systemd timer)
+```
+
+The condition code maps to an effect, with `wind` from wind speed and intensity from precipitation / cloud cover:
+
+| Conditions | Effect |
+|---|---|
+| Thunderstorm | `lightning` |
+| Drizzle / rain | `droplet` |
+| Snow | `snow` |
+| Mist / fog / haze | `stratus` |
+| Clear sky | `sunrays` |
+| Few clouds | `cirrus` |
+| Scattered / broken clouds | `cumulus` |
+| Overcast | `stratus` |
+
+A failed fetch (network down, bad key) is logged and the daemon keeps its last good state — it never crashes. The mapping table lives in one place (`src/weather/mapping.rs`) and is easy to tweak.
+
+<br>
+
 ## Configuration
 
-A TOML config file (`cozy.toml`) is planned and will expose the tunables below. Until then `wind` and rain intensity are set live with `cozy weather`, and each effect's parameters live as named constants at the top of its shader in `shaders/effects/`.
+Beyond weather (above), these per-effect tunables live as named constants at the top of each shader in `shaders/effects/`; `wind` and rain intensity can also be set live by hand with `cozy weather --wind <f> --precip <f>`. A fuller config surface is planned:
 
 | Knob | Meaning |
 |---|---|
@@ -189,8 +228,13 @@ One layer surface per output, each owning its own EGL/GLES context and renderer.
 src/
   main.rs            bootstrap + CLI: run the daemon, or send a control command
   control.rs         Unix-socket control protocol (set / effect / weather)
+  config.rs          load ~/.config/cozy/config.toml (weather settings)
   app.rs             app state + all Wayland event handlers
   surface.rs         one background layer surface per output, + its drawing
+  weather/
+    mod.rs           sync_once + the background poller thread
+    owm.rs           OpenWeatherMap fetch + JSON → Observation
+    mapping.rs       pure Observation → effect + wind + intensity
   render/
     egl.rs           EGL display/context setup on a Wayland surface
     gl.rs            effect registry, fullscreen-triangle draw, uniforms

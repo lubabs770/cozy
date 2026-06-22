@@ -117,12 +117,14 @@ pub fn socket_path() -> PathBuf {
 }
 
 /// Bind the control socket and spawn a listener thread, returning the receiving
-/// end of a channel that yields parsed [`Command`]s.
+/// end of a channel that yields parsed [`Command`]s, plus a [`Sender`] clone so
+/// other in-process producers (e.g. the weather poller) can inject the same
+/// commands the socket carries.
 ///
 /// The thread only moves owned data across the channel, so the GL/Wayland side
 /// stays single-threaded. Per-connection errors are logged and never bring the
 /// daemon down.
-pub fn spawn_listener() -> Result<Receiver<Command>> {
+pub fn spawn_listener() -> Result<(Sender<Command>, Receiver<Command>)> {
     let path = socket_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
@@ -134,11 +136,12 @@ pub fn spawn_listener() -> Result<Receiver<Command>> {
         .with_context(|| format!("bind control socket {}", path.display()))?;
 
     let (tx, rx) = mpsc::channel();
+    let listener_tx = tx.clone();
     thread::Builder::new()
         .name("cozy-control".into())
-        .spawn(move || listen_loop(listener, tx))
+        .spawn(move || listen_loop(listener, listener_tx))
         .context("spawn control listener thread")?;
-    Ok(rx)
+    Ok((tx, rx))
 }
 
 fn listen_loop(listener: UnixListener, tx: Sender<Command>) {
