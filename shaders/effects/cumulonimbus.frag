@@ -75,19 +75,21 @@ void main() {
     float vbias = v_uv.y;           // 0 at top, 1 at bottom
     float d = density(sp, intensity, vbias);
 
-    // Shading from above: tops catch the last light, the base is near-black.
+    // Shading from above: tops catch the last light, the base sits in shadow
+    // (but never crushes to black — that read as a flat grey slab).
     vec2  lightdir = normalize(vec2(-0.3, -1.0));
     float eps = 0.018;
     float dl  = density(sp + lightdir * eps, intensity, vbias);
     float slope = (d - dl) * 7.0;
-    float shade = clamp(0.42 + slope, 0.12, 1.0);
+    float shade = clamp(0.52 + slope, 0.34, 1.0);
 
-    // Dark storm palette: cool slate, lifting toward dirty white at lit tops.
-    vec3  base_col = vec3(0.14, 0.15, 0.18);
-    vec3  lit_col  = vec3(0.78, 0.79, 0.82);
+    // Storm palette: moody slate-blue shadows lifting to a bright dirty white at
+    // the lit cauliflower tops — heavy, but with light still in it.
+    vec3  base_col = vec3(0.34, 0.37, 0.43);
+    vec3  lit_col  = vec3(0.90, 0.91, 0.94);
     vec3  cloud    = mix(base_col, lit_col, shade);
-    // Bottom of the frame stays gloomier still.
-    cloud *= mix(1.0, 0.6, vbias);
+    // Bottom of the frame stays a touch gloomier, gently.
+    cloud *= mix(1.0, 0.82, vbias);
 
     float alpha = smoothstep(0.0, 0.25, d);
 
