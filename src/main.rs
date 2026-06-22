@@ -22,9 +22,11 @@
 //! * [`render`] — EGL/GLES context management and the shader pipeline.
 
 mod app;
+mod config;
 mod control;
 mod render;
 mod surface;
+mod weather;
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -79,7 +81,14 @@ fn main() -> Result<()> {
                 }
             }
         }
-        // Client mode: set weather-driven parameters.
+        // Client mode: fetch local weather once and push it to a running daemon.
+        // Driven by the user's systemd timer / cron; the secret API key lives in
+        // the config file, never on the command line.
+        Some("weather-sync") => {
+            args.next();
+            run_weather_sync()
+        }
+        // Client mode: set weather-driven parameters by hand.
         Some("weather") => {
             args.next();
             let rest: Vec<String> = args.collect();
@@ -112,15 +121,35 @@ fn flag_value(args: &[String], flag: &str) -> Result<f32> {
     anyhow::bail!("usage: cozy weather --wind <f> --precip <f> (missing {flag})")
 }
 
+/// `cozy weather-sync`: load config, fetch local weather once, and push the
+/// resulting effect + wind/precip to a running daemon. Exits nonzero on any
+/// failure so a timer/cron job surfaces the problem.
+fn run_weather_sync() -> Result<()> {
+    let path = config::config_path();
+    let cfg = config::Config::load(&path)?;
+    let state = weather::sync_once(&cfg)?;
+    for cmd in weather::commands_for(&state) {
+        control::send(&cmd)?;
+    }
+    eprintln!(
+        "cozy: weather → effect={} wind={:.2} precip={:.2}",
+        state.effect, state.wind, state.precip
+    );
+    Ok(())
+}
+
 fn print_usage() {
     println!(
         "cozy — animated rain over your Wayland wallpaper\n\n\
          USAGE:\n  \
-         cozy [--wallpaper <path>] [--overlay]  run the daemon\n  \
+         cozy [--wallpaper <path>] [--overlay] [--weather]  run the daemon\n  \
          cozy set <path>                      switch the wallpaper (running daemon)\n  \
          cozy effect [<name>]                 switch the rain effect, or list effects\n  \
-         cozy weather --wind <f> --precip <f> set weather-driven parameters\n  \
-         cozy --help                          show this help\n"
+         cozy weather --wind <f> --precip <f> set weather-driven parameters by hand\n  \
+         cozy weather-sync                    fetch local weather (config) → daemon\n  \
+         cozy --help                          show this help\n\n  \
+         --weather polls OpenWeatherMap (see ~/.config/cozy/config.toml) and drives\n  \
+         the effect, wind and intensity from local conditions.\n"
     );
     print_effects();
 }
@@ -146,14 +175,19 @@ struct DaemonArgs {
     /// Run as a transparent overlay above an external wallpaper daemon
     /// (`--overlay`) instead of owning the wallpaper itself.
     overlay: bool,
+    /// Poll local weather (from the config file) and drive the shaders from it
+    /// (`--weather`).
+    weather: bool,
 }
 
-/// Parse the daemon's arguments: an optional `--wallpaper <path>` and `--overlay`.
+/// Parse the daemon's arguments: an optional `--wallpaper <path>`, `--overlay`,
+/// and `--weather`.
 fn parse_daemon_args(
     mut args: std::iter::Peekable<impl Iterator<Item = String>>,
 ) -> Result<DaemonArgs> {
     let mut wallpaper = None;
     let mut overlay = false;
+    let mut weather = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--wallpaper" | "-w" => {
@@ -163,10 +197,15 @@ fn parse_daemon_args(
                 wallpaper = Some(PathBuf::from(path));
             }
             "--overlay" => overlay = true,
+            "--weather" => weather = true,
             other => anyhow::bail!("unexpected argument: {other:?} (try `cozy --help`)"),
         }
     }
-    Ok(DaemonArgs { wallpaper, overlay })
+    Ok(DaemonArgs {
+        wallpaper,
+        overlay,
+        weather,
+    })
 }
 
 fn run_daemon(args: DaemonArgs) -> Result<()> {
@@ -182,7 +221,19 @@ fn run_daemon(args: DaemonArgs) -> Result<()> {
 
     // Start the control socket before Wayland so a switch sent right at startup
     // is already queued by the time we begin drawing.
-    let commands = control::spawn_listener().context("start control socket")?;
+    let (command_tx, commands) = control::spawn_listener().context("start control socket")?;
+
+    // Optionally drive the shaders from local weather: a background poller feeds
+    // the same command channel the control socket uses. Config errors here are
+    // fatal (the user explicitly asked for weather); fetch errors later are not.
+    if args.weather {
+        let path = config::config_path();
+        let cfg = config::Config::load(&path)
+            .with_context(|| format!("--weather needs a config at {}", path.display()))?;
+        weather::spawn_poller(cfg, command_tx).context("start weather poller")?;
+    } else {
+        drop(command_tx);
+    }
 
     let conn = Connection::connect_to_env().context("connect to Wayland display")?;
     let (globals, mut event_queue) =

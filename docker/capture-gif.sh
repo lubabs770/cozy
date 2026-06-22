@@ -49,8 +49,24 @@ COZY_PID=$!
 sleep 1.5
 kill -0 "$COZY_PID" 2>/dev/null || { echo "!! cozy died"; cat /tmp/cozy.log; exit 1; }
 
+# The effect whose name is burned into the frame label; set before each burst.
+LABEL=""
+FONT=/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf
+
 n=0
-cap() { local f; f=$(printf "%s/f_%04d.png" "$OUT" "$n"); grim "$f" && n=$((n + 1)); }
+# Capture one frame and burn the active effect's name into its bottom-left
+# corner (white on a translucent slab) so the GIF says which shader is running.
+cap() {
+    local f
+    f=$(printf "%s/f_%04d.png" "$OUT" "$n")
+    grim "$f" || return 0
+    if [ -n "$LABEL" ]; then
+        convert "$f" -font "$FONT" -pointsize 30 -gravity SouthWest \
+            -fill white -undercolor '#000000A0' -annotate +22+22 "  $LABEL  " "$f" \
+            || echo "!! label failed for $f" >&2
+    fi
+    n=$((n + 1))
+}
 
 # A little wind so the clouds visibly drift across the frame; healthy cover.
 "$BIN" weather --wind 0.5 --precip 0.7 || true
@@ -58,6 +74,7 @@ cap() { local f; f=$(printf "%s/f_%04d.png" "$OUT" "$n"); grim "$f" && n=$((n + 
 for e in droplet ripple snow clouds cirrus cumulus cumulonimbus stratus sunrays; do
     echo "==> $e"
     "$BIN" effect "$e" || true
+    LABEL="$e"
     sleep 0.5
     for _ in $(seq 1 "$PER"); do cap; sleep "$GAP"; done
 done
@@ -67,6 +84,7 @@ done
 echo "==> lightning"
 "$BIN" effect lightning || true
 "$BIN" weather --wind 0.3 --precip 1.0 || true
+LABEL="lightning"
 sleep 0.3
 for _ in $(seq 1 "$BOLTS"); do cap; sleep 0.14; done
 
